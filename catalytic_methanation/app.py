@@ -24,12 +24,23 @@ class CatalyticMethanationFrame(BaseAppFrame):
         self._heater_indicator_lbl = None
         self._heater_switch = None
 
+        # 2. Define gas UI variables decoupled from self._manual_analog_vars
+        self._gas_ui_vars = {
+            "hydrogen_setpoint": tk.StringVar(value="0.0"),
+            "co2_setpoint": tk.StringVar(value="0.0"),
+            "helium_setpoint": tk.StringVar(value="0.0")
+        }
+        self._override_var = tk.BooleanVar(value=False)
+
         super().__init__(parent, config, daq, on_back)
 
     def _build_ui(self):
         # 2. Call the base class UI builder. This sets up the header, main body canvas,
         # controls, logo, data logging panel, and standard control loops.
         super()._build_ui()
+
+        # Hide the main power switch entirely from the grid
+        self._power_switch.grid_remove()
 
         # 3. Build our custom panels on the scrollable frame self._sf
         # GC Analysis Stream Panel in Col 1, Row 1
@@ -131,12 +142,15 @@ class CatalyticMethanationFrame(BaseAppFrame):
             # Gas name
             ttk.Label(f, text=cfg["label"], font=("Helvetica", 9, "bold")).grid(row=row_idx, column=0, padx=5, pady=12, sticky="w")
 
-            # Setpoint Spinbox
-            var = tk.StringVar(value=str(cfg["default"]))
-            self._manual_analog_vars[sp_key] = var
+            # Setpoint Spinbox (bound to UI variable)
+            ui_var = self._gas_ui_vars[sp_key]
+            ui_var.set(str(cfg["default"]))
+
+            # Hardware target variable (read by BaseAppFrame loop)
+            self._manual_analog_vars[sp_key] = tk.StringVar(value=str(cfg["default"]))
 
             sb = ttk.Spinbox(
-                f, from_=cfg["min_val"], to=cfg["max_val"], textvariable=var,
+                f, from_=cfg["min_val"], to=cfg["max_val"], textvariable=ui_var,
                 width=7, state="disabled"
             )
             sb.grid(row=row_idx, column=1, padx=5, pady=12)
@@ -149,6 +163,29 @@ class CatalyticMethanationFrame(BaseAppFrame):
 
             # Unit
             ttk.Label(f, text=cfg["unit"]).grid(row=row_idx, column=3, padx=5, pady=12, sticky="w")
+
+        # Instruction Text / Constraints labels
+        ttk.Label(f, text="Required Parameters:", font=("Helvetica", 9, "bold")).grid(
+            row=4, column=0, columnspan=4, padx=5, pady=(15, 2), sticky="w"
+        )
+        ttk.Label(f, text="• Total flow rate must be exactly 200 sccm.", font=("Helvetica", 9)).grid(
+            row=5, column=0, columnspan=4, padx=5, pady=2, sticky="w"
+        )
+        ttk.Label(f, text="• H₂ flow rate must be above stoichiometric (H₂ > 4 × CO₂).", font=("Helvetica", 9)).grid(
+            row=6, column=0, columnspan=4, padx=5, pady=2, sticky="w"
+        )
+
+        # Override Limits Checkbutton
+        self._override_cb = ttk.Checkbutton(
+            f, text="Override Limits", variable=self._override_var, state="disabled"
+        )
+        self._override_cb.grid(row=7, column=0, columnspan=4, padx=5, pady=(10, 5), sticky="w")
+        self._manual_analog_widgets.append(self._override_cb)
+
+        # Apply Changes Button
+        self._apply_btn = ttk.Button(f, text="Apply Changes", command=self._apply_gas_changes, state="disabled")
+        self._apply_btn.grid(row=8, column=0, columnspan=4, padx=5, pady=(10, 5), sticky="ew")
+        self._manual_analog_widgets.append(self._apply_btn)
 
     # ══════════════════════════════════════════════════════════════════
     # State change overrides (enabling/disabling and zeroing)
@@ -163,6 +200,13 @@ class CatalyticMethanationFrame(BaseAppFrame):
         self._heater_canvas.itemconfig(self._heater_led, fill="#484f58", outline="#30363d")
         self._heater_indicator_lbl.config(text="HEATER INACTIVE", foreground="")
 
+    def _connect(self, model, connection, identifier):
+        super()._connect(model, connection, identifier)
+        if self.daq.is_connected:
+            self._main_power_on = True
+            self._main_power_var.set(True)
+            self._enable_powered_controls()
+
     def _enable_powered_controls(self):
         super()._enable_powered_controls()
         self._set_gc_widgets_state("normal")
@@ -176,6 +220,13 @@ class CatalyticMethanationFrame(BaseAppFrame):
         # Reset UI control variables to defaults
         self._gc_stream_var.set("Feed")
         self._heater_power_var.set(False)
+
+        # Reset gas UI variables to 0.0
+        for var in self._gas_ui_vars.values():
+            var.set("0.0")
+
+        # Reset override limits checkbutton
+        self._override_var.set(False)
 
         # Update labels and indicators
         self._heater_switch.config(text="Heater Power: OFF")
@@ -196,12 +247,13 @@ class CatalyticMethanationFrame(BaseAppFrame):
                 if cfg:
                     self.daq.write(cfg["pin"], 0.0)
 
-            # Zero GC stream select pin
-            gc_pin = getattr(self.config, "GC_SELECT_PIN", "FIO2")
-            self.daq.write(gc_pin, 0.0)
+            # Zero GC stream select pins
+            gc_pins = getattr(self.config, "GC_SELECT_PINS", ["FIO5", "FIO6"])
+            for pin in gc_pins:
+                self.daq.write(pin, 0.0)
 
             # Zero heater relay pin
-            heater_pin = getattr(self.config, "HEATER_POWER_PIN", "FIO1")
+            heater_pin = getattr(self.config, "HEATER_POWER_PIN", "FIO4")
             self.daq.write(heater_pin, 0.0)
 
     def _set_gc_widgets_state(self, state):
@@ -213,15 +265,17 @@ class CatalyticMethanationFrame(BaseAppFrame):
     # ══════════════════════════════════════════════════════════════════
 
     def _on_gc_stream_change(self):
-        if not self.daq.is_connected or not self._main_power_on:
+        if not self._main_power_on:
             return
         stream = self._gc_stream_var.get()
-        pin = getattr(self.config, "GC_SELECT_PIN", "FIO2")
-        val = 5.0 if stream == "Exhaust" else 0.0
+        # Feed is HIGH (5.0V), Exhaust is LOW (0.0V)
+        val = 5.0 if stream == "Feed" else 0.0
+        pins = getattr(self.config, "GC_SELECT_PINS", ["FIO5", "FIO6"])
         try:
-            self.daq.write(pin, val)
+            for pin in pins:
+                self.daq.write(pin, val)
         except Exception as e:
-            print(f"[GC Select] Error writing to {pin}: {e}")
+            print(f"[GC Select] Error writing: {e}")
 
     def _on_heater_toggle(self):
         state = self._heater_power_var.get()
@@ -236,8 +290,8 @@ class CatalyticMethanationFrame(BaseAppFrame):
             self._heater_indicator_lbl.config(text="HEATER INACTIVE", foreground="")
 
         # Write to physical relay on LabJack
-        pin = getattr(self.config, "HEATER_POWER_PIN", "FIO1")
-        if self.daq.is_connected and self._main_power_on:
+        pin = getattr(self.config, "HEATER_POWER_PIN", "FIO4")
+        if self._main_power_on:
             try:
                 self.daq.write(pin, 5.0 if state else 0.0)
 
@@ -250,6 +304,50 @@ class CatalyticMethanationFrame(BaseAppFrame):
             except Exception as e:
                 print(f"[Heater] Error writing to {pin}: {e}")
 
+    def _apply_gas_changes(self):
+        from tkinter import messagebox
+
+        # 1. Parse flowrate values from UI Spinboxes
+        try:
+            h2 = float(self._gas_ui_vars["hydrogen_setpoint"].get())
+            co2 = float(self._gas_ui_vars["co2_setpoint"].get())
+            he = float(self._gas_ui_vars["helium_setpoint"].get())
+        except ValueError:
+            messagebox.showerror(
+                "Validation Error",
+                "All gas setpoints must be valid numbers."
+            )
+            return
+
+        # 2. Check if limits override is active
+        if not self._override_var.get():
+            # Check if total flow rate is exactly 200 sccm (with 0.1 sccm tolerance)
+            total = h2 + co2 + he
+            if abs(total - 200.0) > 0.1:
+                messagebox.showerror(
+                    "Validation Error",
+                    f"Total gas flow rate must be exactly 200 sccm.\n"
+                    f"Current total: {total:.2f} sccm\n"
+                    f"(H₂: {h2:.1f}, CO₂: {co2:.1f}, He: {he:.1f})"
+                )
+                return
+
+            # Check if H2 flow rate is strictly above stoichiometric (H2 > 4 * CO2)
+            stoich_limit = 4.0 * co2
+            if h2 <= stoich_limit:
+                messagebox.showerror(
+                    "Validation Error",
+                    f"H₂ flow rate must be above the stoichiometric amount (H₂ > 4 × CO₂).\n"
+                    f"For {co2:.2f} sccm of CO₂, H₂ must be > {stoich_limit:.2f} sccm.\n"
+                    f"Current H₂ flow: {h2:.2f} sccm"
+                )
+                return
+
+        # 3. Apply UI variables to actual hardware control variables
+        self._manual_analog_vars["hydrogen_setpoint"].set(str(h2))
+        self._manual_analog_vars["co2_setpoint"].set(str(co2))
+        self._manual_analog_vars["helium_setpoint"].set(str(he))
+
     # ══════════════════════════════════════════════════════════════════
     # Logging Extensions
     # ══════════════════════════════════════════════════════════════════
@@ -257,8 +355,8 @@ class CatalyticMethanationFrame(BaseAppFrame):
     def _build_logger(self):
         super()._build_logger()
         # Add custom data entries to the log output dictionary
-        self.logger._sources["H2 Setpoint (SLPM)"] = lambda: self._manual_analog_vars["hydrogen_setpoint"].get()
-        self.logger._sources["CO2 Setpoint (SLPM)"] = lambda: self._manual_analog_vars["co2_setpoint"].get()
-        self.logger._sources["He Setpoint (SLPM)"] = lambda: self._manual_analog_vars["helium_setpoint"].get()
+        self.logger._sources["H2 Setpoint (SCCM)"] = lambda: self._manual_analog_vars["hydrogen_setpoint"].get()
+        self.logger._sources["CO2 Setpoint (SCCM)"] = lambda: self._manual_analog_vars["co2_setpoint"].get()
+        self.logger._sources["He Setpoint (SCCM)"] = lambda: self._manual_analog_vars["helium_setpoint"].get()
         self.logger._sources["GC Analysis Stream"] = lambda: self._gc_stream_var.get()
         self.logger._sources["Heater Power State"] = lambda: "ON" if self._heater_power_var.get() else "OFF"

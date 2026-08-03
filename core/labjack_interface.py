@@ -32,18 +32,8 @@ class LabJackInterface:
     def connect(self, model: str = "T7", connection: str = "USB", identifier: str = "ANY"):
         """
         Open a connection to the LabJack.
-
-        Parameters
-        ----------
-        model       : Device model string, e.g. "T7" or "T4".
-        connection  : Interface type — "USB", "ETHERNET", or "ANY".
-        identifier  : Serial number, IP address, or "ANY".
-
-        Raises
-        ------
-        ImportError : If labjack-ljm is not installed.
-        Exception   : If connection fails.
         """
+
         if not LJM_AVAILABLE:
             raise ImportError(
                 "labjack-ljm library is not installed.\n"
@@ -62,6 +52,7 @@ class LabJackInterface:
 
     def disconnect(self):
         """Close the connection. Safe to call even if not connected."""
+
         if self._handle is not None and not self.simulated:
             try:
                 ljm.close(self._handle)

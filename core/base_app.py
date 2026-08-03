@@ -153,13 +153,25 @@ class BaseAppFrame(ttk.Frame):
         body = ttk.Frame(self)
         body.pack(fill="both", expand=True, padx=10, pady=10)
 
+        # Canvas
         self._canvas = tk.Canvas(body)
-        self._canvas.pack(side="left", fill="both", expand=True)
+        self._canvas.grid(row=0, column=0, sticky="nsew")
 
-        v_scrollbar = ttk.Scrollbar(body, orient="vertical", command=self._canvas.yview)
-        v_scrollbar.pack(side="right", fill="y")
-        
-        self._canvas.configure(yscrollcommand=v_scrollbar.set)
+        # Scrollbars
+        v_scrollbar = ttk.Scrollbar(body, orient="vertical")
+        v_scrollbar.grid(row=0, column=1, sticky="ns")
+
+        h_scrollbar = ttk.Scrollbar(body, orient="horizontal")
+        h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+        # Configure body grid weights to let canvas expand
+        body.rowconfigure(0, weight=1)
+        body.columnconfigure(0, weight=1)
+
+        # Configure scrollbars and canvas scrolling
+        v_scrollbar.config(command=self._canvas.yview)
+        h_scrollbar.config(command=self._canvas.xview)
+        self._canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
 
         self._sf = ttk.Frame(self._canvas)
         self._canvas.create_window((0, 0), window=self._sf, anchor="nw")
@@ -490,7 +502,9 @@ class BaseAppFrame(ttk.Frame):
         # Zero all physical outputs on LabJack (if connected)
         if self.daq.is_connected:
             # Main power pin
-            self.daq.write(self.config.MAIN_POWER_PIN, 0.0)
+            main_power_pin = getattr(self.config, "MAIN_POWER_PIN", None)
+            if main_power_pin and main_power_pin != "TODO" and main_power_pin != "":
+                self.daq.write(main_power_pin, 0.0)
             
             # Other digital outputs
             switches = getattr(self.config, "SYSTEM_SWITCHES", [])
@@ -565,7 +579,9 @@ class BaseAppFrame(ttk.Frame):
         self._main_power_on = not self._main_power_on
         if self._main_power_on:
             self._power_switch.config(text="Main Power: ON")
-            self.daq.write(self.config.MAIN_POWER_PIN, 1.0)
+            main_power_pin = getattr(self.config, "MAIN_POWER_PIN", None)
+            if main_power_pin and main_power_pin != "TODO" and main_power_pin != "":
+                self.daq.write(main_power_pin, 1.0)
             self._enable_powered_controls()
         else:
             self._power_switch.config(text="Main Power: OFF")
@@ -691,19 +707,18 @@ class BaseAppFrame(ttk.Frame):
         if not self._polling:
             return
 
-        if self.daq.is_connected:
-            for key, var in self._manual_analog_vars.items():
-                cfg = self.config.MANUAL_ANALOG_OUTPUTS.get(key)
-                if not cfg:
-                    continue
-                
-                try:
-                    setpoint_val = float(var.get())
-                    scale = cfg.get("scale", 1.0)
-                    voltage = setpoint_val / scale
-                    self.daq.write(cfg["pin"], voltage)
-                except Exception as exc:
-                    print(f"[Manual Output {key}] write error: {exc}")
+        for key, var in self._manual_analog_vars.items():
+            cfg = self.config.MANUAL_ANALOG_OUTPUTS.get(key)
+            if not cfg:
+                continue
+            
+            try:
+                setpoint_val = float(var.get())
+                scale = cfg.get("scale", 1.0)
+                voltage = setpoint_val / scale
+                self.daq.write(cfg["pin"], voltage)
+            except Exception as exc:
+                print(f"[Manual Output {key}] write error: {exc}")
 
         self.after(UPDATE_INTERVAL_MS, self._update_manual_analog_outputs)
 

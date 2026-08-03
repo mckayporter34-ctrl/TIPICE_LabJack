@@ -23,6 +23,12 @@ DATA_LOGGING_ROW = 0
 DATA_LOGGING_COL = 1
 DATA_LOGGING_COLSPAN = 1
 
+# Apparatus diagram path & positioning
+APPARATUS_IMAGE = "images/Pumpcart_apparatus.jpg"
+APPARATUS_IMAGE_ROW = 2
+APPARATUS_IMAGE_COL = 1
+APPARATUS_IMAGE_COLSPAN = 1
+
 # Digital System Switches (Controls panel)
 SYSTEM_SWITCHES = [
     {

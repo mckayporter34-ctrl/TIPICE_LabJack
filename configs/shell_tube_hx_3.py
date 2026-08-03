@@ -5,6 +5,9 @@ SYSTEM_NAME = "Shell & Tube Heat Exchanger #3"
 LOGO_FILE   = "assets/tipice_logo.png"
 LOG_FOLDER  = "ShellTubeHX3_LoggedData"
 
+from apps.shell_tube_hx import ShellTubeHXRedesignFrame
+FrameClass = ShellTubeHXRedesignFrame
+
 # LabJack connection
 ETHERNET_ADDRESS = "10.8.112.113"
 
@@ -24,7 +27,7 @@ DATA_LOGGING_COL = 1
 DATA_LOGGING_COLSPAN = 2
 
 # Apparatus diagram path & positioning
-APPARATUS_IMAGE = "assets/apparatus.png"
+APPARATUS_IMAGE = "images/STHX3_apparatus.jpg"
 APPARATUS_IMAGE_ROW = 2
 APPARATUS_IMAGE_COL = 1
 APPARATUS_IMAGE_COLSPAN = 2

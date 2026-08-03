@@ -5,11 +5,17 @@ SYSTEM_NAME = "Packed Columns"
 LOGO_FILE   = "assets/tipice_logo.png"
 LOG_FOLDER  = "PackedColumns_LoggedData"
 
+from apps.packed_columns import PackedColumnsRedesignFrame
+FrameClass = PackedColumnsRedesignFrame
+
 # LabJack connection
 ETHERNET_ADDRESS = "10.8.112.59"
 
 # Main physical power relay
 MAIN_POWER_PIN = "FIO6"
+COLUMN_SELECTOR_PIN = "FIO7"
+AIR_SETPOINT_PIN    = "TDAC0"
+AIR_SETPOINT_SCALE  = 200.0
 
 # Layout Grid coordinates
 CONTROLS_ROW = 0
@@ -22,6 +28,12 @@ DATA_LOGGING_COLSPAN = 2
 LOGO_ROW = 2
 LOGO_COL = 0
 LOGO_COLSPAN = 2
+
+# Apparatus diagram path & positioning
+APPARATUS_IMAGE = "images/Packedcol_main_apparatus.jpg"
+APPARATUS_IMAGE_ROW = 3
+APPARATUS_IMAGE_COL = 0
+APPARATUS_IMAGE_COLSPAN = 2
 
 # Digital System Switches (Controls panel)
 SYSTEM_SWITCHES = [
