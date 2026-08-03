@@ -34,15 +34,15 @@ AVAILABLE_CONFIGS = {
             {"name": "Unit #3", "module": "configs.shell_tube_hx_3"}
         ]
     },
-    # "catalytic_methanation": {
-    #     "title": "Catalytic Methanation",
-    #     "subtitle": "LabJack T7 Control Panel",
-    #     "image": "images/Catmeth_main.jpg",
-    #     "active": True,
-    #     "accent": "#2f81f7",  # blue
-    #     "units": [
-    #         {"name": "Unit #1", "module": "configs.catalytic_methanation_1"},
-    #         {"name": "Unit #2", "module": "configs.catalytic_methanation_2"}
-    #     ]
-    # }
+    "catalytic_methanation": {
+        "title": "Catalytic Methanation",
+        "subtitle": "LabJack T7 Control Panel",
+        "image": "images/Catmeth_main.jpg",
+        "active": True,
+        "accent": "#2f81f7",  # blue
+        "units": [
+            {"name": "Unit #1", "module": "configs.catalytic_methanation_1"},
+            {"name": "Unit #2", "module": "configs.catalytic_methanation_2"}
+        ]
+    }
 }
