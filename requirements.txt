@@ -1,0 +1,4 @@
+Pillow
+labjack-ljm
+LabJackPython
+numpy
