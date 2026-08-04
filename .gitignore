@@ -31,4 +31,6 @@ Thumbs.db
 *.swp
 *.swo
 
-
+# Ignored folders
+Archive/
+Development/
