@@ -6,6 +6,7 @@
 # If LJM is missing or connection is not established, it falls back to simulated mode.
 
 import random
+from core.safety import SafetyManager, SafetyState
 
 try:
     from labjack import ljm
@@ -24,6 +25,7 @@ class LabJackInterface:
         self._handle = None
         self.simulated = True  # Defaults to simulated mode until connect() succeeds
         self._sim_last_values = {}
+        self.safety = SafetyManager(force_write_callback=self._force_write)
 
     # ------------------------------------------------------------------
     # Connection management
@@ -33,6 +35,7 @@ class LabJackInterface:
         """
         Open a connection to the LabJack.
         """
+        self.safety.transition_to(SafetyState.CONNECTING)
 
         if not LJM_AVAILABLE:
             raise ImportError(
@@ -43,6 +46,8 @@ class LabJackInterface:
         # Attempt real connection
         self._handle = ljm.openS(model, connection, identifier)
         self.simulated = False
+        
+        self.safety.transition_to(SafetyState.CONNECTED_SAFE)
 
         # Throttle I2C speed to avoid communication errors on longer cables.
         try:
@@ -52,6 +57,8 @@ class LabJackInterface:
 
     def disconnect(self):
         """Close the connection. Safe to call even if not connected."""
+        
+        self.safety.transition_to(SafetyState.SHUTTING_DOWN)
 
         if self._handle is not None and not self.simulated:
             try:
@@ -60,6 +67,8 @@ class LabJackInterface:
                 pass
         self._handle = None
         self.simulated = True
+        
+        self.safety.transition_to(SafetyState.DISCONNECTED)
 
     @property
     def is_connected(self) -> bool:
@@ -74,6 +83,11 @@ class LabJackInterface:
         Read a single register by name and return its float value.
         If in simulated mode, returns a dummy float value.
         """
+        if not self.safety.can_read():
+            if not self.simulated and self._handle is not None and self.safety.state.name != "DISCONNECTED":
+                print(f"[LabJack] Read blocked by safety system for {register}")
+            return 0.0
+
         if self.simulated or self._handle is None:
             # Special registers simulation
             if register == "TEMPERATURE_DEVICE_K":
@@ -87,14 +101,18 @@ class LabJackInterface:
     def write(self, register: str, value: float):
         """
         Write a float value to a named register.
-        If in simulated mode, prints the command to stdout.
         """
+        if not self.safety.can_write():
+            # Only log blocked writes if we are physically connected and not in DISCONNECTED state
+            if not self.simulated and self._handle is not None and self.safety.state.name != "DISCONNECTED":
+                print(f"[LabJack] Write blocked by safety system for {register} <- {value}")
+            return
+            
+        self._force_write(register, value)
+        
+    def _force_write(self, register: str, value: float):
+        """Internal write method that bypasses safety checks, used by SafetyManager for safe_zero"""
         if self.simulated or self._handle is None:
-            # Simulated write - only print if the value has changed significantly
-            last_val = self._sim_last_values.get(register)
-            if last_val is None or abs(last_val - value) > 1e-4:
-                self._sim_last_values[register] = value
-                print(f"[SIMULATED WRITE] {register} <- {value:.4f}")
             return
 
         ljm.eWriteName(self._handle, register, value)

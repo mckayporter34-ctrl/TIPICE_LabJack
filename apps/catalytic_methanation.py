@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 from core.base_app import BaseAppFrame
+from core.safety import SafetyState
 
 CW, CH = 900, 550
 
@@ -271,7 +272,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         ttk.Label(f, text="• Total flow rate must be exactly 200 sccm.", font=("Helvetica", 12)).grid(
             row=5, column=0, columnspan=4, padx=5, pady=2, sticky="w"
         )
-        ttk.Label(f, text="• H₂ flow rate must be above stoichiometric (H₂ > 4 × CO₂).", font=("Helvetica", 12)).grid(
+        ttk.Label(f, text="• H₂ flow rate must be above stoichiometric (H₂ > 4 × CO₂) unless CO₂ is 0.", font=("Helvetica", 12)).grid(
             row=6, column=0, columnspan=4, padx=5, pady=2, sticky="w"
         )
 
@@ -479,6 +480,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         if self.daq.is_connected:
             self._main_power_on = True
             self._main_power_var.set(True)
+            self.daq.safety.transition_to(SafetyState.ENABLED)
             self._enable_powered_controls()
 
     def _enable_powered_controls(self):
@@ -590,7 +592,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
                 return
 
             stoich_limit = 4.0 * co2
-            if h2 <= stoich_limit:
+            if h2 <= stoich_limit and not (co2 == 0.0 and h2 == 0.0):
                 messagebox.showerror(
                     "Validation Error",
                     f"H₂ flow rate must be above the stoichiometric amount (H₂ > 4 × CO₂).\n"

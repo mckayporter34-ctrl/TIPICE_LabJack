@@ -7,6 +7,7 @@ from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 
 from core.base_app import BaseAppFrame
+from core.safety import SafetyState
 
 CW, CH = 902, 554
 
@@ -238,7 +239,7 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
 
         overlays = [
             # Single active column readings in the center
-            (400, 230, "Column 1 Pressure Drop\n(Pa)", self._active_pressure_drop_var, "dp"),
+            (400, 230, "Column 1 Pressure Drop\n(kPa)", self._active_pressure_drop_var, "dp"),
             (400, 310, "Column 1 Level\n(mm)", self._active_level_var, "level"),
 
             # Water Line readings (Right top)
@@ -630,6 +631,9 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
             self._status_lbl.config(text="DISCONNECTED", foreground="red")
 
     def _disconnect(self):
+        if self._main_power_on:
+            self.daq.write(self.config.MAIN_POWER_PIN, 0)
+            
         self.daq.disconnect()
         self._connection_status.config(text="Disconnected", style="Green.TLabel")
         self._status_lbl.config(text="DISCONNECTED", foreground="red")
@@ -642,13 +646,17 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
     def _on_power_toggle(self):
         self._main_power_on = not self._main_power_on
         if self._main_power_on:
+            self.daq.safety.transition_to(SafetyState.ENABLED)
             self._power_sw.config(text="Main Power: ON")
             self.daq.write(self.config.MAIN_POWER_PIN, 1)
             self._enable_powered_controls()
+            self._on_column_select() # Sync hardware state now that it's ENABLED
         else:
             self._power_sw.config(text="Main Power: OFF")
             self.daq.write(self.config.MAIN_POWER_PIN, 0)
             self._disable_powered_controls()
+            self._col_select_var.set(True) # Fix column selector glitch
+            self.daq.safety.transition_to(SafetyState.CONNECTED_SAFE)
 
     def _on_column_select(self, *_args):
         col1_active = self._col_select_var.get()
@@ -669,7 +677,7 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
 
         # Update active labels on the P&ID canvas
         if hasattr(self, "_active_dp_lbl_widget"):
-            self._active_dp_lbl_widget.config(text=f"Column {col_num} Pressure Drop\n(Pa)")
+            self._active_dp_lbl_widget.config(text=f"Column {col_num} Pressure Drop\n(kPa)")
         if hasattr(self, "_active_level_lbl_widget"):
             self._active_level_lbl_widget.config(text=f"Column {col_num} Level\n(mm)")
 

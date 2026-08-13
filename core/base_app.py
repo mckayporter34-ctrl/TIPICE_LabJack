@@ -22,6 +22,7 @@ from core.ui_builders import (
     disable_loop_widgets,
 )
 from core.data_logger import DataLogger
+from core.safety import SafetyState
 
 UPDATE_INTERVAL_MS = 500
 DT_MINUTES = UPDATE_INTERVAL_MS / 1000 / 60
@@ -547,7 +548,7 @@ class BaseAppFrame(ttk.Frame):
             ain_configs = getattr(self.config, "AIN_CONFIGS", {})
             for ch, settings in ain_configs.items():
                 for register, value in settings.items():
-                    self.daq.write(f"{ch}_{register}", value)
+                    self.daq._force_write(f"{ch}_{register}", value)
 
             self._connection_status.config(text="Connected", style="Green.TLabel")
             self._status_lbl.config(text="CONNECTED", foreground="green")
@@ -564,6 +565,11 @@ class BaseAppFrame(ttk.Frame):
             )
 
     def _disconnect(self):
+        if self._main_power_on:
+            main_power_pin = getattr(self.config, "MAIN_POWER_PIN", None)
+            if main_power_pin and main_power_pin != "TODO" and main_power_pin != "":
+                self.daq.write(main_power_pin, 0.0)
+
         self._main_power_on = False
         self._main_power_var.set(False)
         self._power_switch.config(text="Main Power: OFF")
@@ -578,6 +584,7 @@ class BaseAppFrame(ttk.Frame):
     def _on_power_toggle(self):
         self._main_power_on = not self._main_power_on
         if self._main_power_on:
+            self.daq.safety.transition_to(SafetyState.ENABLED)
             self._power_switch.config(text="Main Power: ON")
             main_power_pin = getattr(self.config, "MAIN_POWER_PIN", None)
             if main_power_pin and main_power_pin != "TODO" and main_power_pin != "":
@@ -586,6 +593,7 @@ class BaseAppFrame(ttk.Frame):
         else:
             self._power_switch.config(text="Main Power: OFF")
             self._disable_powered_controls()
+            self.daq.safety.transition_to(SafetyState.CONNECTED_SAFE)
 
     def _on_toggle_switch(self, key, sw):
         var = self._switch_vars[key]
@@ -693,11 +701,13 @@ class BaseAppFrame(ttk.Frame):
                     if sp is not None and meas is not None:
                         loop.sync_tuning_to_pid()
                         u = loop.pid.compute(sp, meas, dt=DT_MINUTES)
-                        self.daq.write(loop.output_pin, u)
+                        if self._main_power_on:
+                            self.daq.write(loop.output_pin, u)
                         loop.set_valve_display(u)
                 else:
                     u = loop.get_manual_voltage()
-                    self.daq.write(loop.output_pin, u)
+                    if self._main_power_on:
+                        self.daq.write(loop.output_pin, u)
             except Exception as exc:
                 print(f"[Loop {key}] output error: {exc}")
 
@@ -716,7 +726,8 @@ class BaseAppFrame(ttk.Frame):
                 setpoint_val = float(var.get())
                 scale = cfg.get("scale", 1.0)
                 voltage = setpoint_val / scale
-                self.daq.write(cfg["pin"], voltage)
+                if self._main_power_on:
+                    self.daq.write(cfg["pin"], voltage)
             except Exception as exc:
                 print(f"[Manual Output {key}] write error: {exc}")
 

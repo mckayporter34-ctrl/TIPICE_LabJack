@@ -99,15 +99,15 @@ SENSOR_CONFIGS = {
     },
     "column1_pressure_drop": {
         "label":       "Col 1 Pressure Drop",
-        "unit":        "Pa",
+        "unit":        "kPa",
         "pin":         "AIN2",
-        "calibration": lambda v: max(0.0, (100.0 * (v - 0.476) / (2.373 - 0.476)) * 248.84),
+        "calibration": lambda v: 0.0 if 8.475 * v <= 4.05 else max(0.0, (v - 0.472) / (2.360 - 0.472) * 24.9)
     },
     "column2_pressure_drop": {
         "label":       "Col 2 Pressure Drop",
-        "unit":        "Pa",
+        "unit":        "kPa",
         "pin":         "AIN3",
-        "calibration": lambda v: max(0.0, (100.0 * (v - 0.476) / (2.373 - 0.476)) * 248.84),
+        "calibration": lambda v: 0.0 if 8.475 * v <= 4.05 else max(0.0, (v - 0.472) / (2.360 - 0.472) * 24.9),
     },
 }
 
@@ -142,7 +142,7 @@ CONTROL_LOOP_CONFIGS = {
         "unit":             "mm",
         "input_pin":        "AIN4",
         "output_pin":       "DAC0",
-        "calibration":      lambda v: max(0.0, ((v - 0.478) / 1.896) * 703.0),
+        "calibration":     lambda v: max(0.0, ((v - 0.478) / 1.896) * 703.0),
         "setpoint_min":     0,
         "setpoint_max":     100,
         "default_setpoint": 0,
@@ -179,6 +179,6 @@ LOG_COLUMNS = {
     "Water Temp (C)":              ("sensor", "water_temperature"),
     "Water Flowrate (L/min)":      ("loop",   "water_flow"),
     "Air Flowrate (SLPM)":         ("sensor", "air_flowrate"),
-    "Column 1 Pressure Drop (Pa)": ("sensor", "column1_pressure_drop"),
-    "Column 2 Pressure Drop (Pa)": ("sensor", "column2_pressure_drop"),
+    "Column 1 Pressure Drop (kPa)": ("sensor", "column1_pressure_drop"),
+    "Column 2 Pressure Drop (kPa)": ("sensor", "column2_pressure_drop"),
 }
