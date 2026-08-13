@@ -268,7 +268,7 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
 
         try:
             workspace_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            bg_path = os.path.join(workspace_dir, "PI diagrams", "PI_diagram.png")
+            bg_path = os.path.join(workspace_dir, "PI diagrams", "shellandtube_pid.png")
             self._bg_img_raw = Image.open(bg_path)
             self._bg_img_resized = self._bg_img_raw.resize((CW, CH), Image.Resampling.LANCZOS)
             self._bg_img = ImageTk.PhotoImage(self._bg_img_resized)
