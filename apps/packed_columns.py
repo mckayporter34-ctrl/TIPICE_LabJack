@@ -90,11 +90,20 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         self._canvas_outer.configure(bg=bg)
 
         self._sf = ttk.Frame(self._canvas_outer)
-        self._canvas_outer.create_window((0, 0), window=self._sf, anchor="nw")
+        self._sf_window = self._canvas_outer.create_window((0, 0), window=self._sf, anchor="nw")
         
-        self._sf.bind("<Configure>", lambda e: self._canvas_outer.configure(
-            scrollregion=self._canvas_outer.bbox("all")
-        ))
+        def _center_frame(event=None):
+            cw = self._canvas_outer.winfo_width()
+            ch = self._canvas_outer.winfo_height()
+            fw = self._sf.winfo_reqwidth()
+            fh = self._sf.winfo_reqheight()
+            x = (cw - fw) // 2 if cw > fw else 0
+            y = (ch - fh) // 2 if ch > fh else 0
+            self._canvas_outer.coords(self._sf_window, x, y)
+            self._canvas_outer.configure(scrollregion=self._canvas_outer.bbox("all"))
+
+        self._sf.bind("<Configure>", _center_frame)
+        self._canvas_outer.bind("<Configure>", _center_frame)
         
         self._sf.bind("<Enter>", lambda e: self.bind_all("<MouseWheel>", self._on_mousewheel))
         self._sf.bind("<Leave>", lambda e: self.unbind_all("<MouseWheel>"))
@@ -539,6 +548,8 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
     def _set_initial_states(self):
         self._power_sw.configure(state="disabled")
         self._log_btn.configure(state="disabled")
+        self._col1_radio.configure(state="disabled")
+        self._col2_radio.configure(state="disabled")
         self._set_loop_panel_states(False)
 
     def _set_loop_panel_states(self, enabled):
@@ -607,11 +618,15 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
     def _enable_powered_controls(self):
         super()._enable_powered_controls()
         self._log_btn.configure(state="normal")
+        self._col1_radio.configure(state="normal")
+        self._col2_radio.configure(state="normal")
         self._set_loop_panel_states(True)
 
     def _disable_powered_controls(self):
         super()._disable_powered_controls()
         self._log_btn.configure(state="disabled")
+        self._col1_radio.configure(state="disabled")
+        self._col2_radio.configure(state="disabled")
         self._set_loop_panel_states(False)
 
     def _on_connection_choice(self, choice):

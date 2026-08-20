@@ -70,11 +70,20 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         self._canvas_outer.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
 
         self._sf = ttk.Frame(self._canvas_outer)
-        self._canvas_outer.create_window((0, 0), window=self._sf, anchor="nw")
+        self._sf_window = self._canvas_outer.create_window((0, 0), window=self._sf, anchor="nw")
         
-        self._sf.bind("<Configure>", lambda e: self._canvas_outer.configure(
-            scrollregion=self._canvas_outer.bbox("all")
-        ))
+        def _center_frame(event=None):
+            cw = self._canvas_outer.winfo_width()
+            ch = self._canvas_outer.winfo_height()
+            fw = self._sf.winfo_reqwidth()
+            fh = self._sf.winfo_reqheight()
+            x = (cw - fw) // 2 if cw > fw else 0
+            y = (ch - fh) // 2 if ch > fh else 0
+            self._canvas_outer.coords(self._sf_window, x, y)
+            self._canvas_outer.configure(scrollregion=self._canvas_outer.bbox("all"))
+
+        self._sf.bind("<Configure>", _center_frame)
+        self._canvas_outer.bind("<Configure>", _center_frame)
         self._sf.bind("<Enter>", lambda e: self.bind_all("<MouseWheel>", self._on_mousewheel))
         self._sf.bind("<Leave>", lambda e: self.unbind_all("<MouseWheel>"))
 
@@ -266,22 +275,15 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             ttk.Label(f, text=cfg["unit"]).grid(row=row_idx, column=3, padx=5, pady=12, sticky="w")
 
         # Required parameters descriptions
-        ttk.Label(f, text="Required Parameters:", font=("Helvetica", 12, "bold")).grid(
+        ttk.Label(f, text="Required Parameters:", font=("Helvetica", 15, "bold")).grid(
             row=4, column=0, columnspan=4, padx=5, pady=(15, 2), sticky="w"
         )
-        ttk.Label(f, text="• Total flow rate must be exactly 200 sccm.", font=("Helvetica", 12)).grid(
+        ttk.Label(f, text="• Total flow rate must be exactly 200 sccm.", font=("Helvetica", 15)).grid(
             row=5, column=0, columnspan=4, padx=5, pady=2, sticky="w"
         )
-        ttk.Label(f, text="• H₂ flow rate must be above stoichiometric (H₂ > 4 × CO₂) unless CO₂ is 0.", font=("Helvetica", 12)).grid(
+        ttk.Label(f, text="• H₂ flow rate must be above stoichiometric (H₂ > 4 × CO₂) unless CO₂ is 0.", font=("Helvetica", 15)).grid(
             row=6, column=0, columnspan=4, padx=5, pady=2, sticky="w"
         )
-
-        # Override Limits Checkbutton
-        self._override_cb = ttk.Checkbutton(
-            f, text="Override Limits", variable=self._override_var, state="disabled"
-        )
-        self._override_cb.grid(row=8, column=0, columnspan=4, padx=5, pady=(10, 5), sticky="w")
-        self._manual_analog_widgets.append(self._override_cb)
 
         # Apply Changes Button
         self._apply_btn = ttk.Button(f, text="Apply Changes", command=self._apply_gas_changes, state="disabled")
@@ -423,7 +425,14 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         spinbox.bind("<Return>", _commit_spinbox)
         spinbox.bind("<FocusOut>", _commit_spinbox)
 
-        def _toggle():
+        def _toggle(user_initiated=False):
+            if user_initiated and key == "pressure" and not mode_var.get():
+                from tkinter.simpledialog import askstring
+                pwd = askstring("Password Required", "Enter password to enable manual mode:", show='*')
+                if pwd != "dietcoke":
+                    mode_var.set(True)
+                    return
+
             loop.is_auto = mode_var.get()
             if loop.is_auto:
                 mode_btn.config(text="AUTO")
@@ -443,7 +452,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
                     spinbox.config(state="normal")
                     loop.pid.reset()
 
-        mode_btn.config(command=_toggle)
+        mode_btn.config(command=lambda: _toggle(user_initiated=True))
 
         # PID constants in a row (centered)
         pid_f = ttk.Frame(f)
@@ -503,8 +512,6 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         for var in self._gas_ui_vars.values():
             var.set("0.0")
 
-        self._override_var.set(False)
-
         self._heater_switch.config(text="Heater Power: OFF")
         self._heater_canvas.itemconfig(self._heater_led, fill="#484f58", outline="#30363d")
         self._heater_indicator_lbl.config(text="HEATER INACTIVE", foreground="")
@@ -550,6 +557,21 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
 
     def _on_heater_toggle(self):
         state = self._heater_power_var.get()
+        
+        if state:
+            try:
+                h2 = float(self.sensors["hydrogen_actual"].value_var.get())
+                co2 = float(self.sensors["co2_actual"].value_var.get())
+                he = float(self.sensors["helium_actual"].value_var.get())
+                total = h2 + co2 + he
+            except Exception:
+                total = 0.0
+                
+            if total < 195.0:
+                self._heater_power_var.set(False)
+                messagebox.showwarning("Warning", "Gas Flow Insufficient. Begin gas flow to turn on heater.")
+                return
+
         self._heater_switch.config(text=f"Heater Power: {'ON' if state else 'OFF'}")
 
         if state:
@@ -580,26 +602,53 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             messagebox.showerror("Validation Error", "All gas setpoints must be valid numbers.")
             return
 
-        if not self._override_var.get():
-            total = h2 + co2 + he
+        total = h2 + co2 + he
+        validation_error = None
+        
+        if total > 0.0:
             if abs(total - 200.0) > 0.1:
-                messagebox.showerror(
-                    "Validation Error",
+                validation_error = (
                     f"Total gas flow rate must be exactly 200 sccm.\n"
                     f"Current total: {total:.2f} sccm\n"
                     f"(H₂: {h2:.1f}, CO₂: {co2:.1f}, He: {he:.1f})"
                 )
-                return
+            else:
+                stoich_limit = 4.0 * co2
+                if h2 <= stoich_limit and not (co2 == 0.0 and h2 == 0.0):
+                    validation_error = (
+                        f"H₂ flow rate must be above the stoichiometric amount (H₂ > 4 × CO₂).\n"
+                        f"For {co2:.2f} sccm of CO₂, H₂ must be > {stoich_limit:.2f} sccm.\n"
+                        f"Current H₂ flow: {h2:.2f} sccm"
+                    )
 
-            stoich_limit = 4.0 * co2
-            if h2 <= stoich_limit and not (co2 == 0.0 and h2 == 0.0):
-                messagebox.showerror(
-                    "Validation Error",
-                    f"H₂ flow rate must be above the stoichiometric amount (H₂ > 4 × CO₂).\n"
-                    f"For {co2:.2f} sccm of CO₂, H₂ must be > {stoich_limit:.2f} sccm.\n"
-                    f"Current H₂ flow: {h2:.2f} sccm"
-                )
-                return
+        if validation_error:
+            from tkinter import Toplevel, Label, Entry, Button, StringVar
+            top = Toplevel()
+            top.title("Validation Error")
+            top.grab_set()
+            Label(top, text=validation_error, justify="left").pack(padx=20, pady=10)
+            Label(top, text="Enter password to override:").pack(padx=20, pady=(0, 5))
+            pwd_var = StringVar()
+            entry = Entry(top, textvariable=pwd_var, show='*')
+            entry.pack(padx=20, pady=5)
+            
+            def on_submit():
+                if pwd_var.get() == "dietcoke":
+                    top.destroy()
+                    self._manual_analog_vars["hydrogen_setpoint"].set(str(h2))
+                    self._manual_analog_vars["co2_setpoint"].set(str(co2))
+                    self._manual_analog_vars["helium_setpoint"].set(str(he))
+                else:
+                    messagebox.showerror("Error", "Incorrect password", parent=top)
+            
+            def on_cancel():
+                top.destroy()
+                
+            btn_frame = ttk.Frame(top)
+            btn_frame.pack(pady=10)
+            Button(btn_frame, text="Override", command=on_submit).pack(side="left", padx=5)
+            Button(btn_frame, text="Cancel", command=on_cancel).pack(side="left", padx=5)
+            return
 
         self._manual_analog_vars["hydrogen_setpoint"].set(str(h2))
         self._manual_analog_vars["co2_setpoint"].set(str(co2))
@@ -609,9 +658,6 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
 
     def _build_logger(self):
         super()._build_logger()
-        self.logger._sources["H2 Setpoint (SCCM)"] = lambda: self._manual_analog_vars["hydrogen_setpoint"].get()
-        self.logger._sources["CO2 Setpoint (SCCM)"] = lambda: self._manual_analog_vars["co2_setpoint"].get()
-        self.logger._sources["He Setpoint (SCCM)"] = lambda: self._manual_analog_vars["helium_setpoint"].get()
         self.logger._sources["GC Analysis Stream"] = lambda: self._gc_stream_var.get()
         self.logger._sources["Heater Power State"] = lambda: "ON" if self._heater_power_var.get() else "OFF"
 

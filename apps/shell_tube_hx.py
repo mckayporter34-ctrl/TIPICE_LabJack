@@ -8,8 +8,9 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 
 from core.base_app import BaseAppFrame
+from core.safety import SafetyState
 
-CW, CH = 1300, 600
+CW, CH = 1300, 762
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 C_WATER  = "#1565C0"
@@ -160,10 +161,20 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
         self._canvas_outer.configure(bg=bg)
 
         self._sf = ttk.Frame(self._canvas_outer)
-        self._canvas_outer.create_window((0, 0), window=self._sf, anchor="nw")
+        self._sf_window = self._canvas_outer.create_window((0, 0), window=self._sf, anchor="nw")
         
-        self._sf.bind("<Configure>", lambda e: self._canvas_outer.configure(
-            scrollregion=self._canvas_outer.bbox("all")))
+        def _center_frame(event=None):
+            cw = self._canvas_outer.winfo_width()
+            ch = self._canvas_outer.winfo_height()
+            fw = self._sf.winfo_reqwidth()
+            fh = self._sf.winfo_reqheight()
+            x = (cw - fw) // 2 if cw > fw else 0
+            y = (ch - fh) // 2 if ch > fh else 0
+            self._canvas_outer.coords(self._sf_window, x, y)
+            self._canvas_outer.configure(scrollregion=self._canvas_outer.bbox("all"))
+
+        self._sf.bind("<Configure>", _center_frame)
+        self._canvas_outer.bind("<Configure>", _center_frame)
         
         self._sf.bind("<Enter>", lambda e: self.bind_all("<MouseWheel>", self._on_mousewheel))
         self._sf.bind("<Leave>", lambda e: self.unbind_all("<MouseWheel>"))
@@ -279,7 +290,7 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
 
         # Pump lighted indicator
         self._pump_indicator = self._pid.create_oval(
-            970+7, 485+7, 970+7, 485+7,
+            970+7, 616+7, 970+7, 616+7,
             fill="#F44336", outline="#263238", width=1
         )
 
@@ -291,18 +302,18 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
 
         # Each entry: (x, y, label, textvariable)
         overlays = [
-            (245, 162, f"{s['water_outlet_temp'].label} ({s['water_outlet_temp'].unit})", s['water_outlet_temp'].value_var),
-            (245, 425, f"{s['water_inlet_temp'].label} ({s['water_inlet_temp'].unit})", s['water_inlet_temp'].value_var),
-            (530, 244, f"{lps['steam_pressure'].label} ({lps['steam_pressure'].unit})", lps['steam_pressure'].measured_var),
-            (174, 298, f"{lps['steam_pressure'].label} Valve (%)", lps['steam_pressure'].rounded_valve_position),
-            (555, 336, f"{s['tube_side_pressure_drop'].label} ({s['tube_side_pressure_drop'].unit})", s['tube_side_pressure_drop'].value_var),
-            (1180, 45,  f"{s['makeup_temperature'].label} ({s['makeup_temperature'].unit})", s['makeup_temperature'].value_var),
-            (1175, 110, f"{s['makeup_flowrate'].label} ({s['makeup_flowrate'].unit})", s['makeup_flowrate'].value_var),
-            (1205, 298, f"{lps['level'].label} ({lps['level'].unit})", lps['level'].measured_var),
-            (1150, 495, f"{lps['level'].label} Valve (%)", lps['level'].rounded_valve_position),
-            (896, 504, "Pump Status", self._pump_status_str),
-            (672, 504, f"{lps['flowrate'].label} ({lps['flowrate'].unit})", lps['flowrate'].measured_var),
-            (506, 504, f"{lps['flowrate'].label} Valve (%)", lps['flowrate'].rounded_valve_position),
+            (245, 206, f"{s['water_outlet_temp'].label} ({s['water_outlet_temp'].unit})", s['water_outlet_temp'].value_var),
+            (245, 540, f"{s['water_inlet_temp'].label} ({s['water_inlet_temp'].unit})", s['water_inlet_temp'].value_var),
+            (530, 310, f"{lps['steam_pressure'].label} ({lps['steam_pressure'].unit})", lps['steam_pressure'].measured_var),
+            (174, 378, f"{lps['steam_pressure'].label} Valve (%)", lps['steam_pressure'].rounded_valve_position),
+            (555, 427, f"{s['tube_side_pressure_drop'].label} ({s['tube_side_pressure_drop'].unit})", s['tube_side_pressure_drop'].value_var),
+            (1180, 57,  f"{s['makeup_temperature'].label} ({s['makeup_temperature'].unit})", s['makeup_temperature'].value_var),
+            (1175, 140, f"{s['makeup_flowrate'].label} ({s['makeup_flowrate'].unit})", s['makeup_flowrate'].value_var),
+            (1205, 378, f"{lps['level'].label} ({lps['level'].unit})", lps['level'].measured_var),
+            (1150, 629, f"{lps['level'].label} Valve (%)", lps['level'].rounded_valve_position),
+            (896, 640, "Pump Status", self._pump_status_str),
+            (672, 640, f"{lps['flowrate'].label} ({lps['flowrate'].unit})", lps['flowrate'].measured_var),
+            (506, 640, f"{lps['flowrate'].label} Valve (%)", lps['flowrate'].rounded_valve_position),
         ]
 
         for x, y, label, var in overlays:
@@ -414,6 +425,20 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
                              width=6, state="disabled", justify="center")
             sb.pack(side="left")
             widgets[f"pid_{name.split()[0]}"] = sb
+
+        # Extra Sensors
+        if hasattr(loop, "extra_sensor_keys") and loop.extra_sensor_keys:
+            extra_f = ttk.Frame(f)
+            extra_f.grid(row=4, column=0, columnspan=2, sticky="ew", padx=4, pady=4)
+            for i, e_key in enumerate(loop.extra_sensor_keys):
+                if e_key in self.sensors:
+                    sensor = self.sensors[e_key]
+                    ttk.Label(extra_f, text=f"{sensor.label} ({sensor.unit})",
+                              wraplength=110).grid(row=i, column=0, sticky="w", padx=4, pady=2)
+                    e_meas = ttk.Entry(extra_f, textvariable=sensor.value_var, width=8,
+                                       state="disabled")
+                    e_meas.grid(row=i, column=1, sticky="ew", padx=4, pady=2)
+                    widgets[f"extra_{e_key}"] = e_meas
 
         return widgets
 
@@ -539,7 +564,7 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
         ain_configs = getattr(self.config, "AIN_CONFIGS", {})
         for ch, settings in ain_configs.items():
             for reg, val in settings.items():
-                self.daq.write(f"{ch}_{reg}", val)
+                self.daq._force_write(f"{ch}_{reg}", val)
 
     def _connect(self, model, connection, identifier):
         try:
@@ -553,18 +578,23 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
             self._status_lbl.config(text="DISCONNECTED", foreground="red")
 
     def _disconnect(self):
+        if self._main_power_on:
+            self.daq.write(self.config.MAIN_POWER_PIN, 0)
+            self._disable_powered_controls()
+            
+        self._main_power_on = False
+        self._main_power_var.set(False)
+        self._power_sw.config(text="Main Power: OFF")
+
         self.daq.disconnect()
         self._connection_status.config(text="Disconnected", style="Green.TLabel")
         self._status_lbl.config(text="DISCONNECTED", foreground="red")
         self._power_sw.configure(state="disabled")
-        self._main_power_on = False
-        self._main_power_var.set(False)
-        self._power_sw.config(text="Main Power: OFF")
-        self._disable_powered_controls()
 
     def _on_power_toggle(self):
         self._main_power_on = not self._main_power_on
         if self._main_power_on:
+            self.daq.safety.transition_to(SafetyState.ENABLED)
             self._power_sw.config(text="Main Power: ON")
             self.daq.write(self.config.MAIN_POWER_PIN, 1)
             self._enable_powered_controls()
@@ -572,6 +602,7 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
             self._power_sw.config(text="Main Power: OFF")
             self.daq.write(self.config.MAIN_POWER_PIN, 0)
             self._disable_powered_controls()
+            self.daq.safety.transition_to(SafetyState.CONNECTED_SAFE)
 
     def _on_pump_toggle(self):
         self._pump_on = not self._pump_on

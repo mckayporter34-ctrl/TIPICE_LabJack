@@ -129,6 +129,16 @@ class BaseAppFrame(ttk.Frame):
                 var = self.sensors[key].value_var
             elif kind == "loop" and key in self.loops:
                 var = self.loops[key].measured_var
+            elif kind == "loop_setpoint" and key in self.loops:
+                var = self.loops[key].setpoint_var
+            elif kind == "loop_valve" and key in self.loops:
+                var = self.loops[key].valve_position
+            elif kind == "loop_kc" and key in self.loops:
+                var = self.loops[key].Kc_var
+            elif kind == "loop_ti" and key in self.loops:
+                var = self.loops[key].Ti_var
+            elif kind == "loop_td" and key in self.loops:
+                var = self.loops[key].Td_var
             else:
                 continue
             sources[header] = var.get

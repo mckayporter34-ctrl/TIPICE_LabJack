@@ -1,0 +1,4 @@
+Time,Water Inlet Temp (C),Water Outlet Temp (C),Tube-Side dP (psig),Makeup Temp (C),Makeup Flowrate (L/min),Level (ft),Flowrate (GPM),Steam Pressure (psig),House Steam Pressure (psig),Level Setpoint (ft),Level Valve (%),Level Kc,Level Ti (min),Level Td (min),Flowrate Setpoint (GPM),Flowrate Valve (%),Flowrate Kc,Flowrate Ti (min),Flowrate Td (min),Steam Pressure Setpoint (psig),Steam Pressure Valve (%),Steam Pressure Kc,Steam Pressure Ti (min),Steam Pressure Td (min)
+11:34:17,23.26,23.86,0.00,-36.93,0.00,0.00,0.00,0.00,Error,0.0,0.0,-75.0,0.005,0.0,0.0,0.0,0.74,0.036,0.0,0.0,0.0,0.5,0.05,0.0
+11:34:18,23.71,24.01,0.00,-36.92,0.00,0.00,0.00,0.00,Error,0.0,0.0,-75.0,0.005,0.0,0.0,0.0,0.74,0.036,0.0,0.0,0.0,0.5,0.05,0.0
+11:34:20,24.16,23.56,0.00,-36.93,0.00,0.00,0.00,0.00,Error,0.0,0.0,-75.0,0.005,0.0,0.0,0.0,0.74,0.036,0.0,0.0,0.0,0.5,0.05,0.0

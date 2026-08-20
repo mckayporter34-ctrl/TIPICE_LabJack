@@ -20,13 +20,13 @@ from configs import AVAILABLE_CONFIGS
 
 # ── Color Theme ───────────────────────────
 C = {
-    "bg":          "#0d1117",   # window background (near-black)
-    "panel":       "#161b22",   # card / panel surface
-    "txt":         "#e6edf3",   # primary text
-    "muted":       "#8b949e",   # secondary text
-    "disabled":    "#484f58",   # disabled text
-    "border":      "#30363d",   # borders
-    "active_border": "#ffffff"  # active hover border
+    "bg":          "#ffffff",   # window background (white)
+    "panel":       "#ffffff",   # card / panel surface
+    "txt":         "#313131",   # primary text
+    "muted":       "#595959",   # secondary text
+    "disabled":    "#a0a0a0",   # disabled text
+    "border":      "#cccccc",   # borders
+    "active_border": "#0072CE"  # active hover border
 }
 
 
@@ -37,7 +37,7 @@ class EquipmentCard(tk.Frame):
     """
 
     def __init__(self, parent, title, subtitle, img_path, units, active=True, accent="#2f81f7", on_click=None, **kw):
-        super().__init__(parent, bg=C["panel"], highlightbackground=accent if active else C["border"],
+        super().__init__(parent, bg=C["panel"], highlightbackground=C["border"],
                          highlightthickness=2 if active else 1, cursor="pointinghand" if active else "arrow", **kw)
 
         self._active = active
@@ -83,14 +83,14 @@ class EquipmentCard(tk.Frame):
                 self._dropdown_values = [u["name"] for u in self._units]
                 self._selected_name = tk.StringVar(value=self._dropdown_values[0])
 
-                # Custom styled OptionMenu to fit the dark dashboard theme
+                # Custom styled OptionMenu to fit the dashboard theme
                 self._dropdown = tk.OptionMenu(
                     content_frame, self._selected_name, *self._dropdown_values,
                     command=self._on_dropdown_select
                 )
                 self._dropdown.config(
                     bg=C["panel"],
-                    fg=C["bg"],
+                    fg=C["txt"],
                     activebackground=C["border"],
                     activeforeground=C["txt"],
                     highlightbackground=C["panel"],
@@ -189,7 +189,7 @@ class EquipmentCard(tk.Frame):
             self._on_click(self._selected_module.get())
 
     def _hover(self, entering: bool):
-        self.config(highlightbackground=C["active_border"] if entering else self._accent)
+        self.config(highlightbackground=self._accent if entering else C["border"])
 
 
 class Dashboard(tk.Frame):
@@ -334,6 +334,16 @@ class MainApplication(tk.Tk):
         self.title(f"{config_module.SYSTEM_NAME} - Control Panel")
         self.geometry("1450x800")  # Larger size for control panels
         
+        # Maximize the window for all apparatus interfaces
+        try:
+            self.state('zoomed')
+        except tk.TclError:
+            pass
+        try:
+            self.attributes('-zoomed', True)
+        except tk.TclError:
+            pass
+
         FrameClass = getattr(config_module, "FrameClass", BaseAppFrame)
         panel_frame = FrameClass(
             self._container,

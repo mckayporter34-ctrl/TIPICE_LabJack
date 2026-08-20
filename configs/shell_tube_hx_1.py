@@ -105,12 +105,6 @@ SENSOR_CONFIGS = {
         "pin":         "AIN0",
         "calibration": _type_k_temp,
     },
-    "house_steam_pressure": {
-        "label":       "House Steam Pressure",
-        "unit":        "psig",
-        "pin":         "TODO",
-        "calibration": lambda v: v,  # TODO calibration
-    },
     "tube_side_pressure_drop": {
         "label":       "Tube-Side Pressure Drop",
         "unit":        "psig",
@@ -147,7 +141,7 @@ SENSOR_PANELS = [
         "col": 2,
         "columnspan": 1,
         "columns": 1,
-        "sensors": ["tube_side_pressure_drop", "makeup_flowrate", "house_steam_pressure"]
+        "sensors": ["tube_side_pressure_drop", "makeup_flowrate"]
     }
 ]
 
@@ -202,11 +196,25 @@ LOOP_ROWS = {
 LOG_COLUMNS = {
     "Water Inlet Temp (C)":        ("sensor", "water_inlet_temp"),
     "Water Outlet Temp (C)":       ("sensor", "water_outlet_temp"),
-    "House Steam Pressure (psig)": ("sensor", "house_steam_pressure"),
     "Tube-Side dP (psig)":         ("sensor", "tube_side_pressure_drop"),
     "Makeup Temp (C)":             ("sensor", "makeup_temperature"),
     "Makeup Flowrate (L/min)":     ("sensor", "makeup_flowrate"),
     "Level (ft)":                  ("loop",   "level"),
     "Flowrate (GPM)":              ("loop",   "flowrate"),
     "Steam Pressure (psig)":       ("loop",   "steam_pressure"),
+    "Level Setpoint (ft)":         ("loop_setpoint", "level"),
+    "Level Valve (%)":             ("loop_valve", "level"),
+    "Level Kc":                    ("loop_kc", "level"),
+    "Level Ti (min)":              ("loop_ti", "level"),
+    "Level Td (min)":              ("loop_td", "level"),
+    "Flowrate Setpoint (GPM)":     ("loop_setpoint", "flowrate"),
+    "Flowrate Valve (%)":          ("loop_valve", "flowrate"),
+    "Flowrate Kc":                 ("loop_kc", "flowrate"),
+    "Flowrate Ti (min)":           ("loop_ti", "flowrate"),
+    "Flowrate Td (min)":           ("loop_td", "flowrate"),
+    "Steam Pressure Setpoint (psig)": ("loop_setpoint", "steam_pressure"),
+    "Steam Pressure Valve (%)":    ("loop_valve", "steam_pressure"),
+    "Steam Pressure Kc":           ("loop_kc", "steam_pressure"),
+    "Steam Pressure Ti (min)":     ("loop_ti", "steam_pressure"),
+    "Steam Pressure Td (min)":     ("loop_td", "steam_pressure"),
 }
