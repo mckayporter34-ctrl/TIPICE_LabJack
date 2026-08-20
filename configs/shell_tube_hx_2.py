@@ -105,12 +105,6 @@ SENSOR_CONFIGS = {
         "pin":         "AIN0",
         "calibration": _type_k_temp,
     },
-    "house_steam_pressure": {
-        "label":       "House Steam Pressure",
-        "unit":        "psig",
-        "pin":         "TODO",
-        "calibration": lambda v: v,  # TODO calibration
-    },
     "tube_side_pressure_drop": {
         "label":       "Tube-Side Pressure Drop",
         "unit":        "psig",
@@ -187,7 +181,7 @@ CONTROL_LOOP_CONFIGS = {
         "setpoint_max":     150.0,
         "default_setpoint": 0.0,
         "pid_defaults":     {"Kc": 0.5, "Ti": 0.05, "Td": 0.0},
-        "extra_sensor_key": "house_steam_pressure",
+        "extra_sensor_key": None,
     },
 }
 
@@ -208,7 +202,6 @@ LOG_COLUMNS = {
     "Level (ft)":                  ("loop",   "level"),
     "Flowrate (GPM)":              ("loop",   "flowrate"),
     "Steam Pressure (psig)":       ("loop",   "steam_pressure"),
-    "House Steam Pressure (psig)": ("sensor", "house_steam_pressure"),
     "Level Setpoint (ft)":         ("loop_setpoint", "level"),
     "Level Valve (%)":             ("loop_valve", "level"),
     "Level Kc":                    ("loop_kc", "level"),
