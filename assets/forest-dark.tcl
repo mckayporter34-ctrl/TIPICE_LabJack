@@ -37,11 +37,11 @@ namespace eval ttk::theme::forest-dark {
             -focuscolor $colors(-selectbg) \
             -selectbackground $colors(-selectbg) \
             -selectforeground $colors(-selectfg) \
-            -insertwidth [expr {1 * $scalef}] \
+            -insertwidth [expr {1 * $::scalef}] \
             -insertcolor $colors(-fg) \
             -fieldbackground $colors(-selectbg) \
-            -font [list TkDefaultFont [expr {round(10 * $scalef)}]] \
-            -borderwidth [expr {round(1 * $scalef)}] \
+            -font [list TkDefaultFont [expr {round(10 * $::scalef)}]] \
+            -borderwidth [expr {round(1 * $::scalef)}] \
             -relief flat
 
         ttk::style map . -foreground [list disabled $colors(-disabledfg)]
