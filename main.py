@@ -70,7 +70,7 @@ class EquipmentCard(tk.Frame):
         # ── Text Labels ──
         title_fg = C["txt"] if active else C["disabled"]
         title_lbl = tk.Label(content_frame, text=title, bg=C["panel"], fg=title_fg,
-                             font=("Helvetica", 20, "bold"), wraplength=350, justify="center")
+                             font=("Segoe UI", 20, "bold"), wraplength=350, justify="center")
         title_lbl.pack(anchor="center", pady=(0, 20))
 
         # ── Dropdown or Text Label and Launch Button ──
@@ -85,7 +85,7 @@ class EquipmentCard(tk.Frame):
                     textvariable=self._selected_name,
                     values=self._dropdown_values,
                     state="readonly",
-                    font=("Helvetica", 14),
+                    font=("Segoe UI", 14),
                     cursor="hand2"
                 )
                 self._dropdown.bind("<<ComboboxSelected>>", lambda e: self._on_dropdown_select(self._selected_name.get()))
@@ -98,7 +98,7 @@ class EquipmentCard(tk.Frame):
                     text=unit_name,
                     bg=C["panel"],
                     fg=C["muted"],
-                    font=("Helvetica", 14, "bold"),
+                    font=("Segoe UI", 14, "bold"),
                     pady=6
                 )
                 self._static_label.pack(pady=(2, 15))
@@ -114,7 +114,7 @@ class EquipmentCard(tk.Frame):
                 relief="flat",
                 bd=0,
                 highlightthickness=0,
-                font=("Helvetica", 14, "bold"),
+                font=("Segoe UI", 14, "bold"),
                 padx=25,
                 pady=10,
                 cursor="hand2",
@@ -129,7 +129,7 @@ class EquipmentCard(tk.Frame):
             badge_txt = "● COMING SOON"
             badge_fg = C["disabled"]
             badge_lbl = tk.Label(content_frame, text=badge_txt, bg=C["panel"], fg=badge_fg,
-                                 font=("Helvetica", 8, "bold"))
+                                 font=("Segoe UI", 8, "bold"))
             badge_lbl.pack(pady=(0, 4))
 
         # ── Hover and Click Bindings ──
@@ -189,20 +189,20 @@ class Dashboard(tk.Frame):
         hdr.pack(fill="x", side="top")
 
         tk.Label(hdr, text="BYU Chemical Engineering Lab Control System",
-                 bg=C["panel"], fg=C["txt"], font=("Helvetica", 20, "bold")).pack(side="left", padx=25, pady=12)
+                 bg=C["panel"], fg=C["txt"], font=("Segoe UI", 20, "bold")).pack(side="left", padx=25, pady=12)
 
         # Right header block
         right_hdr = tk.Frame(hdr, bg=C["panel"])
         right_hdr.pack(side="right", padx=25, pady=12)
 
         tk.Label(right_hdr, text="Select system to begin control",
-                 bg=C["panel"], fg=C["muted"], font=("Helvetica", 14)).pack(side="top", anchor="e")
+                 bg=C["panel"], fg=C["muted"], font=("Segoe UI", 14)).pack(side="top", anchor="e")
 
 
 
         # ── Section title ──
         tk.Label(self, text="AVAILABLE SYSTEMS", bg=C["bg"], fg=C["muted"],
-                 font=("Helvetica", 16, "bold")).pack(pady=(15, 2))
+                 font=("Segoe UI", 16, "bold")).pack(pady=(15, 2))
 
         # ── Grid container ──
         grid_container = tk.Frame(self, bg=C["bg"])
