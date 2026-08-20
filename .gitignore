@@ -34,3 +34,4 @@ Thumbs.db
 # Ignored folders
 Archive/
 Development/
+*_LoggedData/

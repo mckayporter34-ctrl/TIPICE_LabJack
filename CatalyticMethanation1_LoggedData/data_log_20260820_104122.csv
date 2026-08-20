@@ -1,8 +1,0 @@
-Time,Reactor Pressure (psi),Temperature (C),H2 Actual Flow (SCCM),CO2 Actual Flow (SCCM),He Actual Flow (SCCM),H2 Setpoint (SCCM),CO2 Setpoint (SCCM),He Setpoint (SCCM),GC Analysis Stream,Heater Power State
-10:41:22,0.00,26.18,0.00,0.00,0.00,0.0,0.0,200.0,Feed,OFF
-10:41:23,0.00,26.15,0.00,0.00,0.00,0.0,0.0,200.0,Feed,OFF
-10:41:24,0.00,26.15,0.00,0.00,0.00,0.0,0.0,200.0,Feed,OFF
-10:41:25,0.00,26.19,0.00,0.00,0.00,0.0,0.0,200.0,Feed,OFF
-10:41:27,0.00,26.19,0.00,0.00,0.00,0.0,0.0,200.0,Feed,OFF
-10:41:28,0.00,26.15,0.00,0.00,0.00,0.0,0.0,200.0,Feed,OFF
-10:41:29,0.00,26.19,0.00,0.00,0.00,0.0,0.0,200.0,Feed,OFF
