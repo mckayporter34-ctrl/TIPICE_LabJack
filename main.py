@@ -70,12 +70,13 @@ class EquipmentCard(tk.Frame):
         # ── Text Labels ──
         title_fg = C["txt"] if active else C["disabled"]
         title_lbl = tk.Label(content_frame, text=title, bg=C["panel"], fg=title_fg,
-                             font=("Segoe UI", 20, "bold"), wraplength=350, justify="center")
+                             font=("Segoe UI", 20, "bold"), wraplength=350, justify="center",
+                             height=2) # Fixed height ensures horizontal alignment across grid
         title_lbl.pack(anchor="center", side="top", pady=(0, 20))
 
-        # Bottom container for controls so they align across cards
+        # Container for controls packed to the top (right beneath the fixed-height title)
         controls_frame = tk.Frame(content_frame, bg=C["panel"])
-        controls_frame.pack(side="bottom", fill="x")
+        controls_frame.pack(side="top", fill="x")
 
         # ── Dropdown or Text Label and Launch Button ──
         if active:
