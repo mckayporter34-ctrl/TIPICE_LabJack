@@ -71,7 +71,11 @@ class EquipmentCard(tk.Frame):
         title_fg = C["txt"] if active else C["disabled"]
         title_lbl = tk.Label(content_frame, text=title, bg=C["panel"], fg=title_fg,
                              font=("Segoe UI", 20, "bold"), wraplength=350, justify="center")
-        title_lbl.pack(anchor="center", pady=(0, 20))
+        title_lbl.pack(anchor="center", side="top", pady=(0, 20))
+
+        # Bottom container for controls so they align across cards
+        controls_frame = tk.Frame(content_frame, bg=C["panel"])
+        controls_frame.pack(side="bottom", fill="x")
 
         # ── Dropdown or Text Label and Launch Button ──
         if active:
@@ -81,7 +85,7 @@ class EquipmentCard(tk.Frame):
 
                 # Use ttk.Combobox for a clear dropdown arrow and native styling
                 self._dropdown = ttk.Combobox(
-                    content_frame,
+                    controls_frame,
                     textvariable=self._selected_name,
                     values=self._dropdown_values,
                     state="readonly",
@@ -94,7 +98,7 @@ class EquipmentCard(tk.Frame):
                 # Single unit: Add a static text label instead of a dropdown to keep visual symmetry
                 unit_name = self._units[0]["name"] if self._units else "Unit #1"
                 self._static_label = tk.Label(
-                    content_frame,
+                    controls_frame,
                     text=unit_name,
                     bg=C["panel"],
                     fg=C["muted"],
@@ -105,7 +109,7 @@ class EquipmentCard(tk.Frame):
 
             # Styled Launch Button (present on all active cards with black text color)
             self._launch_btn = tk.Button(
-                content_frame,
+                controls_frame,
                 text="Launch Unit",
                 bg=accent,
                 fg="black",
@@ -128,7 +132,7 @@ class EquipmentCard(tk.Frame):
         else:
             badge_txt = "● COMING SOON"
             badge_fg = C["disabled"]
-            badge_lbl = tk.Label(content_frame, text=badge_txt, bg=C["panel"], fg=badge_fg,
+            badge_lbl = tk.Label(controls_frame, text=badge_txt, bg=C["panel"], fg=badge_fg,
                                  font=("Segoe UI", 8, "bold"))
             badge_lbl.pack(pady=(0, 4))
 
