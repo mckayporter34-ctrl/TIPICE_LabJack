@@ -8,7 +8,7 @@ from PIL import Image, ImageTk
 from core.base_app import BaseAppFrame
 from core.safety import SafetyState
 
-CW, CH = 900, 550
+CW, CH = 1300, 762
 
 class CatalyticMethanationRedesignFrame(BaseAppFrame):
     """
@@ -121,9 +121,6 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         # Gas flow selector (Rates), Heater power, and GC panels
         mid_col = ttk.Frame(self._sf)
         mid_col.grid(row=0, column=1, rowspan=2, padx=10, pady=10, sticky="nsew")
-        mid_col.rowconfigure(0, weight=1)
-        mid_col.rowconfigure(1, weight=1)
-        mid_col.rowconfigure(2, weight=1)
 
         self._build_gas_flow_rates_panel(mid_col, row=0, col=0)
         self._build_heater_power_panel(mid_col, row=1, col=0)
@@ -251,7 +248,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             row_idx = idx + 1
 
             # Gas name
-            ttk.Label(f, text=cfg["label"], font=("Helvetica", 10, "bold")).grid(row=row_idx, column=0, padx=5, pady=12, sticky="w")
+            ttk.Label(f, text=cfg["label"], font=("Helvetica", 10, "bold"), wraplength=70).grid(row=row_idx, column=0, padx=5, pady=12, sticky="w")
 
             # Setpoint Spinbox
             ui_var = self._gas_ui_vars[sp_key]
@@ -317,13 +314,13 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         
         # Approximate overlay locations (x, y, label, variable)
         overlays = [
-            (180, 25, f"H₂ Flow ({s['hydrogen_actual'].unit})", s["hydrogen_actual"].value_var),
-            (180, 210, f"CO₂ Flow ({s['co2_actual'].unit})", s["co2_actual"].value_var),
-            (180, 390, f"He Flow ({s['helium_actual'].unit})", s["helium_actual"].value_var),
-            (670, 160, f"Reactor Temperature ({s['reactor_temp_sensor'].unit})", s["reactor_temp_sensor"].value_var),
-            (670, 280, f"Heater Temperature ({s['heater_temp_sensor'].unit})", s["heater_temp_sensor"].value_var),
-            (590, 415, f"Pressure ({s['reactor_pressure_sensor'].unit})", s["reactor_pressure_sensor"].value_var),
-            (685, 520, "Pressure Valve (%)", self.loops["pressure"].rounded_valve_position),
+            (260, 35, f"H₂ Flow ({s['hydrogen_actual'].unit})", s["hydrogen_actual"].value_var),
+            (260, 291, f"CO₂ Flow ({s['co2_actual'].unit})", s["co2_actual"].value_var),
+            (260, 540, f"He Flow ({s['helium_actual'].unit})", s["helium_actual"].value_var),
+            (967, 222, f"Reactor Temperature ({s['reactor_temp_sensor'].unit})", s["reactor_temp_sensor"].value_var),
+            (967, 388, f"Heater Temperature ({s['heater_temp_sensor'].unit})", s["heater_temp_sensor"].value_var),
+            (852, 575, f"Pressure ({s['reactor_pressure_sensor'].unit})", s["reactor_pressure_sensor"].value_var),
+            (989, 720, "Pressure Valve (%)", self.loops["pressure"].rounded_valve_position),
         ]
 
         for x, y, label, var in overlays:

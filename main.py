@@ -208,8 +208,8 @@ class Dashboard(tk.Frame):
         grid_container = tk.Frame(self, bg=C["bg"])
         grid_container.pack(fill="both", expand=True, padx=25, pady=5)
 
-        # Layout cards in a flexible 2x2 grid
-        cols = 2
+        # Layout cards in a flexible 3-column grid (1 row)
+        cols = 3
         for idx, (slug, info) in enumerate(AVAILABLE_CONFIGS.items()):
             row_idx, col_idx = divmod(idx, cols)
             
@@ -285,7 +285,7 @@ class MainApplication(tk.Tk):
     def show_dashboard(self):
         """Switch view to landing page dashboard."""
         self.title("BYU TIPICE Lab Control System")
-        self.geometry("1000x580")  # Optimized height for horizontal tiles layout
+        self.geometry("1150x650")  # Optimized height for a 3-column horizontal tiles layout
         self._swap_frame(Dashboard(self._container, on_select_equipment=self.launch_apparatus, daq=self._daq))
 
     def launch_apparatus(self, module_name):

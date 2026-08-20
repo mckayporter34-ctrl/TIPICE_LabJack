@@ -9,7 +9,7 @@ from PIL import Image, ImageTk
 from core.base_app import BaseAppFrame
 from core.safety import SafetyState
 
-CW, CH = 902, 554
+CW, CH = 1300, 762
 
 class PackedColumnsRedesignFrame(BaseAppFrame):
     """
@@ -240,29 +240,29 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         # Create column selected indicators
         self._col1_lbl = tk.Label(self._pid, textvariable=self._col1_indicator_val,
                                   font=("Helvetica", 11, "bold"), bg="#2E7D32", fg="white", padx=6, pady=4, relief="ridge")
-        self._pid.create_window(240, 15, window=self._col1_lbl, anchor="center")
+        self._pid.create_window(346, 21, window=self._col1_lbl, anchor="center")
 
         self._col2_lbl = tk.Label(self._pid, textvariable=self._col2_indicator_val,
                                   font=("Helvetica", 11, "bold"), bg="#B0BEC5", fg="#37474F", padx=6, pady=4, relief="ridge")
-        self._pid.create_window(570, 15, window=self._col2_lbl, anchor="center")
+        self._pid.create_window(821, 21, window=self._col2_lbl, anchor="center")
 
         overlays = [
             # Single active column readings in the center
-            (400, 230, "Column 1 Pressure Drop\n(kPa)", self._active_pressure_drop_var, "dp"),
-            (400, 310, "Column 1 Level\n(mm)", self._active_level_var, "level"),
+            (576, 316, "Column 1 Pressure Drop\n(kPa)", self._active_pressure_drop_var, "dp"),
+            (576, 426, "Column 1 Level\n(mm)", self._active_level_var, "level"),
 
             # Water Line readings (Right top)
-            (810, 35, "Water Flowrate\n(L/min)", lps["water_flow"].measured_var),
-            (810, 105, "Water Temp\n(°C)", s["water_temperature"].value_var),
-            (650, 160, "Water Flow Valve\n(%)", lps["water_flow"].rounded_valve_position),
+            (1167, 48, "Water Flowrate\n(L/min)", lps["water_flow"].measured_var),
+            (1167, 144, "Water Temp\n(°C)", s["water_temperature"].value_var),
+            (937, 220, "Water Flow Valve\n(%)", lps["water_flow"].rounded_valve_position),
 
             # Water Exit Line reading (Left bottom)
-            (108, 480, "Water Exit Valve\n(%)", self._water_exit_valve_percent_var),
+            (156, 660, "Water Exit Valve\n(%)", self._water_exit_valve_percent_var),
 
             # Air Line readings (Right bottom)
-            (475, 505, "Air Flowrate\n(SLPM)", s["air_flowrate"].value_var),
-            (400, 85, "CO₂ Concentration\n(ppm)", s["co2_concentration"].value_var),
-            (635, 520, "Air Valve\n(%)", self._air_valve_percent_var),
+            (684, 694, "Air Flowrate\n(SLPM)", s["air_flowrate"].value_var),
+            (576, 117, "CO₂ Concentration\n(ppm)", s["co2_concentration"].value_var),
+            (915, 715, "Air Valve\n(%)", self._air_valve_percent_var),
         ]
 
         for item in overlays:
