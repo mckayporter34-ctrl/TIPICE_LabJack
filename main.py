@@ -61,21 +61,17 @@ class EquipmentCard(tk.Frame):
                 print(f"[Card] Image error for {img_path}: {e}")
 
         img_lbl = tk.Label(self, image=self._photo, bg=C["panel"], width=150, height=150)
-        img_lbl.pack(side="left", pady=12, padx=(12, 8))
+        img_lbl.pack(side="top", pady=(20, 10))
 
-        # ── Right Side Frame (vertical stack for text and buttons) ──
-        right_frame = tk.Frame(self, bg=C["panel"])
-        right_frame.pack(side="left", fill="both", expand=True, pady=12, padx=(8, 12))
+        # ── Content Frame (vertical stack for text and buttons) ──
+        content_frame = tk.Frame(self, bg=C["panel"])
+        content_frame.pack(side="top", fill="both", expand=True, pady=(0, 20), padx=20)
 
         # ── Text Labels ──
         title_fg = C["txt"] if active else C["disabled"]
-        title_lbl = tk.Label(right_frame, text=title, bg=C["panel"], fg=title_fg,
-                             font=("Helvetica", 16, "bold"), wraplength=200, justify="left")
-        title_lbl.pack(anchor="w", pady=(0, 4))
-
-        # ── Content Frame (Centering selectors and buttons vertically/horizontally) ──
-        content_frame = tk.Frame(right_frame, bg=C["panel"])
-        content_frame.pack(expand=True)
+        title_lbl = tk.Label(content_frame, text=title, bg=C["panel"], fg=title_fg,
+                             font=("Helvetica", 16, "bold"), wraplength=300, justify="center")
+        title_lbl.pack(anchor="center", pady=(0, 15))
 
         # ── Dropdown or Text Label and Launch Button ──
         if active:
@@ -89,27 +85,28 @@ class EquipmentCard(tk.Frame):
                     command=self._on_dropdown_select
                 )
                 self._dropdown.config(
-                    bg=C["panel"],
+                    bg="#f9f9f9",
                     fg=C["txt"],
-                    activebackground=C["border"],
+                    activebackground="#e0e0e0",
                     activeforeground=C["txt"],
-                    highlightbackground=C["panel"],
-                    highlightcolor=C["panel"],
-                    relief="flat",
+                    highlightbackground=C["border"],
+                    highlightthickness=1,
+                    relief="solid",
+                    bd=1,
                     font=("Helvetica", 12),
                     padx=10,
                     pady=4,
                     cursor="hand2"
                 )
                 self._dropdown["menu"].config(
-                    bg=C["panel"],
+                    bg="white",
                     fg=C["txt"],
                     activebackground=accent,
                     activeforeground="white",
                     relief="flat",
                     font=("Helvetica", 12)
                 )
-                self._dropdown.pack(pady=(2, 4))
+                self._dropdown.pack(pady=(2, 10))
             else:
                 # Single unit: Add a static text label instead of a dropdown to keep visual symmetry
                 unit_name = self._units[0]["name"] if self._units else "Unit #1"
@@ -121,7 +118,7 @@ class EquipmentCard(tk.Frame):
                     font=("Helvetica", 12, "bold"),
                     pady=4
                 )
-                self._static_label.pack(pady=(2, 4))
+                self._static_label.pack(pady=(2, 10))
 
             # Styled Launch Button (present on all active cards with black text color)
             self._launch_btn = tk.Button(
@@ -156,7 +153,7 @@ class EquipmentCard(tk.Frame):
         if active:
             self.bind("<Enter>", lambda _: self._hover(True))
             self.bind("<Leave>", lambda _: self._hover(False))
-            bindable_children = [img_lbl, right_frame, content_frame, title_lbl]
+            bindable_children = [img_lbl, content_frame, title_lbl]
             if hasattr(self, "_static_label"):
                 bindable_children.append(self._static_label)
             for child in bindable_children:
