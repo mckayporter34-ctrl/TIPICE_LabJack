@@ -8,7 +8,7 @@ from PIL import Image, ImageTk
 from core.base_app import BaseAppFrame
 from core.safety import SafetyState
 
-CW, CH = 1300, 762
+CW, CH = 990, 762
 
 class CatalyticMethanationRedesignFrame(BaseAppFrame):
     """
@@ -136,8 +136,8 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
     # ── Custom Panels ──────────────────────────────────────────────────────────
 
     def _build_gc_select_panel(self, parent, row, col, columnspan=1):
-        f = ttk.LabelFrame(parent, text="GC Analysis Stream", padding=(20, 15))
-        f.grid(row=row, column=col, columnspan=columnspan, padx=(10, 10), pady=(10, 10), sticky="nsew")
+        f = ttk.LabelFrame(parent, text="GC Analysis Stream", padding=(10, 10))
+        f.grid(row=row, column=col, columnspan=columnspan, padx=(5, 5), pady=(5, 5), sticky="nsew")
 
         self._gc_widgets = []
 
@@ -158,8 +158,8 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         self._gc_widgets.append(r2)
 
     def _build_apparatus_image(self, parent, img_path, row, col, columnspan):
-        f = ttk.LabelFrame(parent, text="Apparatus Diagram", padding=(10, 10))
-        f.grid(row=row, column=col, columnspan=columnspan, padx=(20, 10), pady=(10, 10), sticky="nsew")
+        f = ttk.LabelFrame(parent, text="Apparatus Diagram", padding=(5, 5))
+        f.grid(row=row, column=col, columnspan=columnspan, padx=(10, 5), pady=(5, 5), sticky="nsew")
         
         f.rowconfigure(0, weight=1)
         f.columnconfigure(0, weight=1)
@@ -184,8 +184,8 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             ttk.Label(f, text="[Install Pillow to view image]").grid(row=0, column=0, padx=5, pady=5, sticky="")
 
     def _build_heater_power_panel(self, parent, row, col, columnspan=1):
-        f = ttk.LabelFrame(parent, text="Heater Control", padding=(20, 15))
-        f.grid(row=row, column=col, columnspan=columnspan, padx=(10, 10), pady=(10, 10), sticky="nsew")
+        f = ttk.LabelFrame(parent, text="Heater Control", padding=(10, 10))
+        f.grid(row=row, column=col, columnspan=columnspan, padx=(5, 5), pady=(5, 5), sticky="nsew")
 
         self._heater_switch = ttk.Checkbutton(
             f, text="Heater Power: OFF", style="Switch",
@@ -224,8 +224,8 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         self._heater_indicator_lbl.grid(row=0, column=1, sticky="w")
 
     def _build_gas_flow_rates_panel(self, parent, row, col, columnspan=1, rowspan=1):
-        f = ttk.LabelFrame(parent, text="Gas Flow Rates", padding=(20, 15))
-        f.grid(row=row, column=col, columnspan=columnspan, rowspan=rowspan, padx=(10, 10), pady=(0, 10), sticky="nsew")
+        f = ttk.LabelFrame(parent, text="Gas Flow Rates", padding=(10, 10))
+        f.grid(row=row, column=col, columnspan=columnspan, rowspan=rowspan, padx=(5, 5), pady=(0, 5), sticky="nsew")
 
         # Headers
         ttk.Label(f, text="Gas", font=("Helvetica", 12, "bold")).grid(row=0, column=0, padx=5, pady=5, sticky="w")
@@ -272,13 +272,13 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             ttk.Label(f, text=cfg["unit"]).grid(row=row_idx, column=3, padx=5, pady=12, sticky="w")
 
         # Required parameters descriptions
-        ttk.Label(f, text="Required Parameters:", font=("Helvetica", 15, "bold")).grid(
+        ttk.Label(f, text="Required Parameters:", font=("Helvetica", 11, "bold")).grid(
             row=4, column=0, columnspan=4, padx=5, pady=(15, 2), sticky="w"
         )
-        ttk.Label(f, text="• Total flow rate must be exactly 200 sccm.", font=("Helvetica", 15)).grid(
+        ttk.Label(f, text="• Total flow rate must be exactly 200 sccm.", font=("Helvetica", 11), wraplength=250).grid(
             row=5, column=0, columnspan=4, padx=5, pady=2, sticky="w"
         )
-        ttk.Label(f, text="• H₂ flow rate must be above stoichiometric (H₂ > 4 × CO₂) unless CO₂ is 0.", font=("Helvetica", 15)).grid(
+        ttk.Label(f, text="• H₂ flow rate must be above stoichiometric (H₂ > 4 × CO₂) unless CO₂ is 0.", font=("Helvetica", 11), wraplength=250).grid(
             row=6, column=0, columnspan=4, padx=5, pady=2, sticky="w"
         )
 
@@ -314,13 +314,13 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         
         # Approximate overlay locations (x, y, label, variable)
         overlays = [
-            (260, 35, f"H₂ Flow ({s['hydrogen_actual'].unit})", s["hydrogen_actual"].value_var),
-            (260, 291, f"CO₂ Flow ({s['co2_actual'].unit})", s["co2_actual"].value_var),
-            (260, 540, f"He Flow ({s['helium_actual'].unit})", s["helium_actual"].value_var),
-            (967, 222, f"Reactor Temperature ({s['reactor_temp_sensor'].unit})", s["reactor_temp_sensor"].value_var),
-            (967, 388, f"Heater Temperature ({s['heater_temp_sensor'].unit})", s["heater_temp_sensor"].value_var),
-            (852, 575, f"Pressure ({s['reactor_pressure_sensor'].unit})", s["reactor_pressure_sensor"].value_var),
-            (989, 720, "Pressure Valve (%)", self.loops["pressure"].rounded_valve_position),
+            (198, 35, f"H₂ Flow ({s['hydrogen_actual'].unit})", s["hydrogen_actual"].value_var),
+            (198, 291, f"CO₂ Flow ({s['co2_actual'].unit})", s["co2_actual"].value_var),
+            (198, 540, f"He Flow ({s['helium_actual'].unit})", s["helium_actual"].value_var),
+            (736, 222, f"Reactor Temperature ({s['reactor_temp_sensor'].unit})", s["reactor_temp_sensor"].value_var),
+            (736, 388, f"Heater Temperature ({s['heater_temp_sensor'].unit})", s["heater_temp_sensor"].value_var),
+            (649, 575, f"Pressure ({s['reactor_pressure_sensor'].unit})", s["reactor_pressure_sensor"].value_var),
+            (753, 720, "Pressure Valve (%)", self.loops["pressure"].rounded_valve_position),
         ]
 
         for x, y, label, var in overlays:
