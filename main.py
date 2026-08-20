@@ -65,14 +65,19 @@ class EquipmentCard(tk.Frame):
 
         # ── Content Frame (vertical stack for text and buttons) ──
         content_frame = tk.Frame(self, bg=C["panel"])
-        content_frame.pack(side="top", fill="both", expand=True, pady=(0, 25), padx=25)
+        content_frame.pack(side="top", fill="both", expand=True, pady=(0, 0), padx=25)
 
         # ── Text Labels ──
         title_fg = C["txt"] if active else C["disabled"]
         title_lbl = tk.Label(content_frame, text=title, bg=C["panel"], fg=title_fg,
+<<<<<<< HEAD
                              font=("Segoe UI", 20, "bold"), wraplength=350, justify="center",
                              height=2) # Fixed height ensures horizontal alignment across grid
         title_lbl.pack(anchor="center", side="top", pady=(0, 20))
+=======
+                             font=("Segoe UI", 20, "bold"), wraplength=350, justify="center")
+        title_lbl.pack(anchor="center", side="top", pady=(10, 20))
+>>>>>>> dd14f2c7d994ad83be00e693ed548fcd61f3d057
 
         # Container for controls packed to the top (right beneath the fixed-height title)
         controls_frame = tk.Frame(content_frame, bg=C["panel"])
