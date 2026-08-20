@@ -118,13 +118,17 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
                 self._build_apparatus_image(left_col, resolved_img_file, row=2, col=0, columnspan=1)
 
         # ── Next Column (Col 1) ──
-        # Gas flow selector (Rates), Heater power, and GC panels
+        # Gas flow selector (Rates) and Heater power panels
         mid_col = ttk.Frame(self._sf)
-        mid_col.grid(row=0, column=1, rowspan=2, padx=10, pady=10, sticky="nsew")
+        mid_col.grid(row=0, column=1, rowspan=1, padx=10, pady=10, sticky="nsew")
+        mid_col.columnconfigure(0, weight=1)
+        mid_col.rowconfigure(0, weight=1)
 
         self._build_gas_flow_rates_panel(mid_col, row=0, col=0)
         self._build_heater_power_panel(mid_col, row=1, col=0)
-        self._build_gc_select_panel(mid_col, row=2, col=0)
+        
+        # Move GC select panel to main layout row 1 to align with loops
+        self._build_gc_select_panel(self._sf, row=1, col=1)
 
         # ── Right Column (Cols 2-3) ──
         # P&ID Diagram (Col 2-3, Row 0)
@@ -137,7 +141,10 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
 
     def _build_gc_select_panel(self, parent, row, col, columnspan=1):
         f = ttk.LabelFrame(parent, text="GC Analysis Stream", padding=(10, 10))
-        f.grid(row=row, column=col, columnspan=columnspan, padx=(5, 5), pady=(5, 5), sticky="nsew")
+        f.grid(row=row, column=col, columnspan=columnspan, padx=8, pady=(5, 20), sticky="nsew")
+        
+        f.rowconfigure(0, weight=1)
+        f.rowconfigure(1, weight=1)
 
         self._gc_widgets = []
 
@@ -219,7 +226,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         )
 
         self._heater_indicator_lbl = ttk.Label(
-            ind_frame, text="HEATER INACTIVE", font=("Helvetica", 9, "bold")
+            ind_frame, text="HEATER INACTIVE", font=("Segoe UI", 9, "bold")
         )
         self._heater_indicator_lbl.grid(row=0, column=1, sticky="w")
 
@@ -228,10 +235,10 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         f.grid(row=row, column=col, columnspan=columnspan, rowspan=rowspan, padx=(5, 5), pady=(0, 5), sticky="nsew")
 
         # Headers
-        ttk.Label(f, text="Gas", font=("Helvetica", 12, "bold")).grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        ttk.Label(f, text="Setpoint", font=("Helvetica", 12, "bold")).grid(row=0, column=1, padx=5, pady=5)
-        ttk.Label(f, text="Actual", font=("Helvetica", 12, "bold")).grid(row=0, column=2, padx=5, pady=5)
-        ttk.Label(f, text="Unit", font=("Helvetica", 12, "bold")).grid(row=0, column=3, padx=5, pady=5, sticky="w")
+        ttk.Label(f, text="Gas", font=("Segoe UI", 12, "bold")).grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        ttk.Label(f, text="Setpoint", font=("Segoe UI", 12, "bold")).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Label(f, text="Actual", font=("Segoe UI", 12, "bold")).grid(row=0, column=2, padx=5, pady=5)
+        ttk.Label(f, text="Unit", font=("Segoe UI", 12, "bold")).grid(row=0, column=3, padx=5, pady=5, sticky="w")
 
         gases = [
             ("hydrogen_setpoint", "hydrogen_actual"),
@@ -248,7 +255,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             row_idx = idx + 1
 
             # Gas name
-            ttk.Label(f, text=cfg["label"], font=("Helvetica", 10, "bold"), wraplength=70).grid(row=row_idx, column=0, padx=5, pady=12, sticky="w")
+            ttk.Label(f, text=cfg["label"], font=("Segoe UI", 10, "bold"), wraplength=70).grid(row=row_idx, column=0, padx=5, pady=12, sticky="w")
 
             # Setpoint Spinbox
             ui_var = self._gas_ui_vars[sp_key]
@@ -272,13 +279,13 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             ttk.Label(f, text=cfg["unit"]).grid(row=row_idx, column=3, padx=5, pady=12, sticky="w")
 
         # Required parameters descriptions
-        ttk.Label(f, text="Required Parameters:", font=("Helvetica", 11, "bold")).grid(
+        ttk.Label(f, text="Required Parameters:", font=("Segoe UI", 11, "bold")).grid(
             row=4, column=0, columnspan=4, padx=5, pady=(15, 2), sticky="w"
         )
-        ttk.Label(f, text="• Total flow rate must be exactly 200 sccm.", font=("Helvetica", 11), wraplength=250).grid(
+        ttk.Label(f, text="• Total flow rate must be exactly 200 sccm.", font=("Segoe UI", 11), wraplength=250).grid(
             row=5, column=0, columnspan=4, padx=5, pady=2, sticky="w"
         )
-        ttk.Label(f, text="• H₂ flow rate must be above stoichiometric (H₂ > 4 × CO₂) unless CO₂ is 0.", font=("Helvetica", 11), wraplength=250).grid(
+        ttk.Label(f, text="• H₂ flow rate must be above stoichiometric (H₂ > 4 × CO₂) unless CO₂ is 0.", font=("Segoe UI", 11), wraplength=250).grid(
             row=6, column=0, columnspan=4, padx=5, pady=2, sticky="w"
         )
 
@@ -305,7 +312,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             self._pid.create_image(0, 0, anchor="nw", image=self._bg_img)
         except Exception as e:
             print(f"Error loading P&ID background image: {e}")
-            self._pid.create_text(CW//2, CH//2, text="P&ID Diagram Image Not Found", font=("Helvetica", 16))
+            self._pid.create_text(CW//2, CH//2, text="P&ID Diagram Image Not Found", font=("Segoe UI", 16))
 
         self._create_sensor_overlays()
 
@@ -325,11 +332,11 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
 
         for x, y, label, var in overlays:
             card = tk.Frame(self._pid, bg="white", padx=0, pady=0, bd=0)
-            lbl = tk.Label(card, text=label, font=("Helvetica", 12, "bold"),
+            lbl = tk.Label(card, text=label, font=("Segoe UI", 12, "bold"),
                            bg="white", fg="#263238", anchor="center")
             lbl.pack(fill="x", padx=0, pady=0)
             entry = ttk.Entry(card, textvariable=var, state="disabled", width=8,
-                              justify="center", font=("Helvetica", 12, "bold"))
+                              justify="center", font=("Segoe UI", 12, "bold"))
             entry.pack(fill="x", padx=0, pady=(2, 4))
             self._pid.create_window(x, y, window=card, anchor="center")
             self._overlay_cards.append(card)
@@ -463,7 +470,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         ]):
             pair_f = ttk.Frame(pid_f)
             pair_f.pack(side="left", padx=6)
-            ttk.Label(pair_f, text=name, font=("Helvetica", 8)).pack(side="left", padx=(0, 4))
+            ttk.Label(pair_f, text=name, font=("Segoe UI", 8)).pack(side="left", padx=(0, 4))
             sb = ttk.Spinbox(pair_f, textvariable=var, from_=lo, to=hi,
                              width=6, state="disabled", justify="center")
             sb.pack(side="left")
