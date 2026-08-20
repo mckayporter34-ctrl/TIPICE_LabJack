@@ -55,6 +55,7 @@ AIN_CONFIGS = {
     "AIN5": {"NEGATIVE_CH": 199, "RANGE": 10.0},
     "AIN6": {"NEGATIVE_CH": 199, "RANGE": 10.0},
     "AIN7": {"NEGATIVE_CH": 199, "RANGE": 10.0},
+    "AIN8": {"NEGATIVE_CH": 199, "RANGE": 10.0},
 }
 
 # Internal cold junction register for thermocouple compensation
@@ -108,8 +109,8 @@ SENSOR_CONFIGS = {
     "house_steam_pressure": {
         "label":       "House Steam Pressure",
         "unit":        "psig",
-        "pin":         "TODO",
-        "calibration": lambda v: v,  # TODO calibration
+        "pin":         "AIN8",
+        "calibration": _make_pressure_cal(0.0, 150.0, V_min=0.479),
     },
     "tube_side_pressure_drop": {
         "label":       "Tube-Side Pressure Drop",
