@@ -71,7 +71,7 @@ class EquipmentCard(tk.Frame):
         title_fg = C["txt"] if active else C["disabled"]
         title_lbl = tk.Label(content_frame, text=title, bg=C["panel"], fg=title_fg,
                              font=("Segoe UI", 20, "bold"), wraplength=350, justify="center")
-        title_lbl.pack(anchor="center", side="top", pady=(0, 20))
+        title_lbl.pack(anchor="center", side="top", pady=(10, 20))
 
         # Bottom container for controls so they align across cards
         controls_frame = tk.Frame(content_frame, bg=C["panel"])
