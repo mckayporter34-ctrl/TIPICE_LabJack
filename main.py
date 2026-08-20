@@ -38,7 +38,7 @@ class EquipmentCard(tk.Frame):
 
     def __init__(self, parent, title, subtitle, img_path, units, active=True, accent="#2f81f7", on_click=None, **kw):
         super().__init__(parent, bg=C["panel"], highlightbackground=C["border"],
-                         highlightthickness=2 if active else 1, cursor="pointinghand" if active else "arrow", **kw)
+                         highlightthickness=2 if active else 1, cursor="hand2" if active else "arrow", **kw)
 
         self._active = active
         self._accent = accent
@@ -99,7 +99,7 @@ class EquipmentCard(tk.Frame):
                     font=("Helvetica", 12),
                     padx=10,
                     pady=4,
-                    cursor="pointinghand"
+                    cursor="hand2"
                 )
                 self._dropdown["menu"].config(
                     bg=C["panel"],
@@ -137,7 +137,7 @@ class EquipmentCard(tk.Frame):
                 font=("Helvetica", 10, "bold"),
                 padx=15,
                 pady=6,
-                cursor="pointinghand",
+                cursor="hand2",
                 command=self._click
             )
             self._launch_btn.bind("<Enter>", lambda e: self._launch_btn.config(bg=self._lighten_color(accent)))
