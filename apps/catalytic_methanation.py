@@ -319,7 +319,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             (198, 540, f"He Flow ({s['helium_actual'].unit})", s["helium_actual"].value_var),
             (736, 222, f"Reactor Temperature ({s['reactor_temp_sensor'].unit})", s["reactor_temp_sensor"].value_var),
             (736, 388, f"Heater Temperature ({s['heater_temp_sensor'].unit})", s["heater_temp_sensor"].value_var),
-            (649, 575, f"Pressure ({s['reactor_pressure_sensor'].unit})", s["reactor_pressure_sensor"].value_var),
+            (655, 575, f"Pressure ({s['reactor_pressure_sensor'].unit})", s["reactor_pressure_sensor"].value_var),
             (753, 720, "Pressure Valve (%)", self.loops["pressure"].rounded_valve_position),
         ]
 

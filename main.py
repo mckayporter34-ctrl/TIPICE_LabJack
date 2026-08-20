@@ -65,7 +65,7 @@ class EquipmentCard(tk.Frame):
 
         # ── Content Frame (vertical stack for text and buttons) ──
         content_frame = tk.Frame(self, bg=C["panel"])
-        content_frame.pack(side="top", fill="both", expand=True, pady=(0, 25), padx=25)
+        content_frame.pack(side="top", fill="both", expand=True, pady=(0, 0), padx=25)
 
         # ── Text Labels ──
         title_fg = C["txt"] if active else C["disabled"]
