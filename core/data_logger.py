@@ -1,11 +1,5 @@
 # data_logger.py
-# Background-thread CSV data logger.
-#
-# DataLogger knows nothing about specific sensors or column names — it
-# receives those at construction time via the `sources` dict, which maps
-# a CSV column header to a callable that returns the current string value.
-# Adding or removing logged channels means only editing config.py, not
-# touching any logger code.
+# Background-thread CSV and InfluxDB data logger.
 
 import csv
 import os
@@ -13,63 +7,71 @@ import time
 from datetime import datetime
 from threading import Thread, Event
 
+try:
+    from influxdb_client import InfluxDBClient, Point, WritePrecision
+    from influxdb_client.client.write_api import SYNCHRONOUS
+    INFLUX_AVAILABLE = True
+except ImportError:
+    INFLUX_AVAILABLE = False
+    print("[Warning] influxdb_client not found — historian logging disabled.")
+
+# --- INFLUXDB CONFIGURATION ---
+INFLUX_URL = "http://10.5.112.172:8086"
+INFLUX_TOKEN = "m4BUDV1JRzGaAq7Y6jF-f5i6z3qMD5cnwWA6nwPubak9h4WoO1qxE6qAdgAc5e_EoUqWgzxSpXfSvGVsppGrCA==" 
+INFLUX_ORG = "BYUChemE"
+INFLUX_BUCKET = "UOLab"
+
 
 class DataLogger:
     """
-    Writes sensor readings to a timestamped CSV file in a background thread.
-
-    Parameters
-    ----------
-    sources   : Ordered dict mapping CSV column header → callable() → str.
-                Example:
-                    {
-                        "Water Temp (C)":    lambda: sensors["water_temperature"].value_var.get(),
-                        "Air Flow (SLPM)":   lambda: sensors["air_flowrate"].value_var.get(),
-                    }
-    folder    : Directory name where CSV files are saved (relative to working directory).
-                Created automatically if it does not exist.
-    count_var : tkinter IntVar updated with the running row count so the GUI
-                can display it live without any extra coupling.
+    Writes sensor readings to a timestamped CSV file and pushes them to InfluxDB
+    in a background thread.
     """
 
-    def __init__(self, sources: dict, folder: str, count_var):
-        self._sources   = sources       # {header: callable}
-        self._folder    = folder
-        self._count_var = count_var
+    def __init__(self, sources: dict, influx_sources: dict, folder: str, count_var, unit_op: str, run_id_var):
+        self._sources        = sources          # {header: callable} for CSV
+        self._influx_sources = influx_sources   # {field_name: callable} for InfluxDB
+        self._folder         = folder
+        self._count_var      = count_var
+        self._unit_op        = unit_op
+        self._run_id_var     = run_id_var
 
         self._is_logging  = False
         self._stop_event  = Event()
-        self._interval    = 1.0         # seconds between rows; caller may set this
+        self._interval    = 1.0
 
-    # ------------------------------------------------------------------
-    # Public API called by the GUI toggle button
-    # ------------------------------------------------------------------
+        # Initialize InfluxDB Client if available
+        self._influx_client = None
+        self._write_api = None
+        if INFLUX_AVAILABLE:
+            try:
+                self._influx_client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+                self._write_api = self._influx_client.write_api(write_options=SYNCHRONOUS)
+            except Exception as e:
+                print(f"[DataLogger] InfluxDB Connection Initialization Error: {e}")
 
     @property
     def is_logging(self) -> bool:
         return self._is_logging
 
     def set_interval(self, seconds: float):
-        """Update the logging interval (takes effect on the next sleep cycle)."""
         self._interval = max(0.1, float(seconds))
 
     def start(self):
-        """Start logging in a daemon background thread."""
         if self._is_logging:
             return
         self._is_logging = True
         self._stop_event.clear()
         self._count_var.set(0)
+        
+        # Capture current Run ID value upon start
+        self._active_run_id = self._run_id_var.get().strip() or "Unnamed_Run"
+        
         Thread(target=self._run, daemon=True).start()
 
     def stop(self):
-        """Signal the logging thread to finish and exit."""
         self._is_logging = False
         self._stop_event.set()
-
-    # ------------------------------------------------------------------
-    # Background thread
-    # ------------------------------------------------------------------
 
     def _run(self):
         filepath = self._make_filepath()
@@ -83,9 +85,36 @@ class DataLogger:
 
             while not self._stop_event.is_set():
                 timestamp = datetime.now().strftime("%H:%M:%S")
+                
+                # 1. Write Local CSV (Preserve 100% original functionality)
                 row = [timestamp] + [fn() for fn in self._sources.values()]
                 writer.writerow(row)
-                csvfile.flush()                       # write to disk immediately
+                csvfile.flush()
+
+                # 2. Push to InfluxDB Historian
+                if self._write_api:
+                    try:
+                        point = Point("process_data") \
+                            .tag("run_id", self._active_run_id) \
+                            .tag("unit_op", self._unit_op)
+
+                        has_valid_fields = False
+                        for field_name, fn in self._influx_sources.items():
+                            val_str = fn()
+                            if val_str not in ("---", "Error", "", None):
+                                try:
+                                    numeric_val = float(val_str)
+                                    point.field(field_name, numeric_val)
+                                    has_valid_fields = True
+                                except (ValueError, TypeError):
+                                    # Handle categorical string fields if needed
+                                    pass
+
+                        if has_valid_fields:
+                            self._write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+                    except Exception as e:
+                        print(f"[DataLogger] InfluxDB Write Error: {e}")
+
                 self._count_var.set(self._count_var.get() + 1)
                 time.sleep(self._interval)
 
@@ -94,6 +123,5 @@ class DataLogger:
     def _make_filepath(self) -> str:
         timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename   = f"data_log_{timestamp}.csv"
-        # Save in the folder relative to the current working directory (e.g. project root)
         cwd = os.getcwd()
         return os.path.join(cwd, self._folder, filename)

@@ -27,6 +27,16 @@ from core.safety import SafetyState
 UPDATE_INTERVAL_MS = 500
 DT_MINUTES = UPDATE_INTERVAL_MS / 1000 / 60
 
+# Mapping SYSTEM_NAME to exact InfluxDB unit_op tags
+UNIT_OP_MAP = {
+    "Catalytic Methanation #1": "CatMeth1",
+    "Catalytic Methanation #2": "CatMeth2",
+    "Packed Columns": "PC",
+    "Shell & Tube Heat Exchanger #1": "STHX1",
+    "Shell & Tube Heat Exchanger #2": "STHX2",
+    "Shell & Tube Heat Exchanger #3": "STHX3",
+}
+
 
 class BaseAppFrame(ttk.Frame):
     """
@@ -50,6 +60,7 @@ class BaseAppFrame(ttk.Frame):
         self._logging_text_var = tk.StringVar(value="Start Logging")
         self._log_interval_var = tk.DoubleVar(value=1.0)
         self._data_point_count = tk.IntVar(value=0)
+        self._run_id_var = tk.StringVar(value="YYMMDD_GroupName")
 
         # Dynamic switches vars
         self._switch_vars = {}
@@ -94,7 +105,6 @@ class BaseAppFrame(ttk.Frame):
                 Td=pid_defaults.get("Td", 0.0),
             )
             
-            # Extract extra sensor keys
             extra_keys = cfg.get("extra_sensor_keys")
             extra_key = cfg.get("extra_sensor_key")
             
@@ -112,17 +122,16 @@ class BaseAppFrame(ttk.Frame):
                 extra_sensor_key=extra_key,
             )
             
-            # Set loop gating if defined
             if "gate_switch" in cfg:
                 loop.gate_switch = cfg["gate_switch"]
                 loop.gate_value = cfg.get("gate_value", True)
                 
-            # Seed setpoint default
             loop.setpoint_var.set(str(cfg.get("default_setpoint", 0.0)))
             loops[key] = loop
         return loops
 
     def _build_logger(self):
+        # 1. CSV Sources
         sources = {}
         for header, (kind, key) in getattr(self.config, "LOG_COLUMNS", {}).items():
             if kind == "sensor" and key in self.sensors:
@@ -143,10 +152,24 @@ class BaseAppFrame(ttk.Frame):
                 continue
             sources[header] = var.get
 
+        # 2. InfluxDB Sources (All sensors + non-duplicate control loops)
+        influx_sources = {}
+        for key, sensor in self.sensors.items():
+            if sensor.is_configured():
+                influx_sources[key] = sensor.value_var.get
+        for key, loop in self.loops.items():
+            if loop.input_pin not in [s.pin for s in self.sensors.values()]:
+                influx_sources[key] = loop.measured_var.get
+
+        unit_op = UNIT_OP_MAP.get(self.config.SYSTEM_NAME, "DefaultUnit")
+
         self.logger = DataLogger(
             sources=sources,
+            influx_sources=influx_sources,
             folder=getattr(self.config, "LOG_FOLDER", "LoggedData"),
             count_var=self._data_point_count,
+            unit_op=unit_op,
+            run_id_var=self._run_id_var,
         )
 
     # ══════════════════════════════════════════════════════════════════
@@ -154,32 +177,25 @@ class BaseAppFrame(ttk.Frame):
     # ══════════════════════════════════════════════════════════════════
 
     def _build_ui(self):
-        # Configure grid expansion
         self._sensor_widgets = {}
 
-        # Header Bar
         self._build_header_bar()
 
-        # Main Body container (scrollable frame)
         body = ttk.Frame(self)
         body.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Canvas
         self._canvas = tk.Canvas(body)
         self._canvas.grid(row=0, column=0, sticky="nsew")
 
-        # Scrollbars
         v_scrollbar = ttk.Scrollbar(body, orient="vertical")
         v_scrollbar.grid(row=0, column=1, sticky="ns")
 
         h_scrollbar = ttk.Scrollbar(body, orient="horizontal")
         h_scrollbar.grid(row=1, column=0, sticky="ew")
 
-        # Configure body grid weights to let canvas expand
         body.rowconfigure(0, weight=1)
         body.columnconfigure(0, weight=1)
 
-        # Configure scrollbars and canvas scrolling
         v_scrollbar.config(command=self._canvas.yview)
         h_scrollbar.config(command=self._canvas.xview)
         self._canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
@@ -194,18 +210,15 @@ class BaseAppFrame(ttk.Frame):
         self._sf.bind("<Enter>", lambda e: self.bind_all("<MouseWheel>", self._on_mousewheel))
         self._sf.bind("<Leave>", lambda e: self.unbind_all("<MouseWheel>"))
 
-        # ── Controls Frame ──
         c_row = getattr(self.config, "CONTROLS_ROW", 0)
         c_col = getattr(self.config, "CONTROLS_COL", 0)
         self._build_controls_frame(self._sf, c_row, c_col)
 
-        # ── Logo Frame ──
         l_row = getattr(self.config, "LOGO_ROW", 1)
         l_col = getattr(self.config, "LOGO_COL", 0)
         l_colspan = getattr(self.config, "LOGO_COLSPAN", 1)
         self._build_logo_frame(self._sf, l_row, l_col, l_colspan)
 
-        # ── Apparatus Image Frame (Optional) ──
         img_file = getattr(self.config, "APPARATUS_IMAGE", None)
         if img_file and os.path.exists(img_file):
             img_row = getattr(self.config, "APPARATUS_IMAGE_ROW", 2)
@@ -213,27 +226,22 @@ class BaseAppFrame(ttk.Frame):
             img_colspan = getattr(self.config, "APPARATUS_IMAGE_COLSPAN", 1)
             self._build_apparatus_image(self._sf, img_file, img_row, img_col, img_colspan)
 
-        # ── Data Logging Frame ──
         dl_row = getattr(self.config, "DATA_LOGGING_ROW", 0)
         dl_col = getattr(self.config, "DATA_LOGGING_COL", 1)
         dl_colspan = getattr(self.config, "DATA_LOGGING_COLSPAN", 2)
         self._build_data_logging_frame(self._sf, dl_row, dl_col, dl_colspan)
 
-        # ── Manual Analog Outputs Panel (Optional) ──
         mao_panel_cfg = getattr(self.config, "MANUAL_ANALOG_OUTPUTS_PANEL", None)
         if mao_panel_cfg:
             self._build_manual_analog_outputs_panel(self._sf, mao_panel_cfg)
 
-        # ── Sensor Panels ──
         sensor_panels = getattr(self.config, "SENSOR_PANELS", [])
         for sp in sensor_panels:
             self._build_sensor_panel(self._sf, sp)
 
-        # ── Control Loop Panels ──
         self._loop_widgets = {}
         loop_rows = getattr(self.config, "LOOP_ROWS", None)
         
-        # If no loop rows are explicitly defined, stack them vertically in column 3
         if loop_rows is None:
             loop_rows = {k: idx for idx, k in enumerate(self.loops.keys())}
             
@@ -249,18 +257,15 @@ class BaseAppFrame(ttk.Frame):
         bar = ttk.Frame(self, relief="raised", borderwidth=1)
         bar.pack(fill="x", side="top")
 
-        # Back Button
         btn = ttk.Button(bar, text="← Dashboard", command=self._go_back)
         btn.pack(side="left", padx=10, pady=5)
 
-        # Title
         title_lbl = ttk.Label(
             bar, text=self.config.SYSTEM_NAME,
             font=("Helvetica", 14, "bold")
         )
         title_lbl.pack(side="left", padx=20, pady=5)
 
-        # Connection status badge
         self._status_lbl = ttk.Label(
             bar, text="DISCONNECTED",
             foreground="red", font=("Helvetica", 10, "bold")
@@ -271,7 +276,6 @@ class BaseAppFrame(ttk.Frame):
         f = ttk.LabelFrame(parent, text="Controls", padding=(20, 10))
         f.grid(row=row, column=col, padx=(20, 10), pady=(10, 10), sticky="nsew")
 
-        # Connection Selection
         self._connect_dropdown = ttk.OptionMenu(
             f, self._connection_var,
             "Connect to LabJack",
@@ -283,7 +287,6 @@ class BaseAppFrame(ttk.Frame):
         self._connection_status = ttk.Label(f, text="Not connected", padding=(5, 5))
         self._connection_status.grid(row=1, column=0, padx=5, pady=0, sticky="nsew")
 
-        # Main Power Switch
         self._power_switch = ttk.Checkbutton(
             f, text="Main Power: OFF", style="Switch",
             variable=self._main_power_var,
@@ -291,7 +294,6 @@ class BaseAppFrame(ttk.Frame):
         )
         self._power_switch.grid(row=2, column=0, padx=5, pady=10, sticky="nsew")
 
-        # Dynamic System Switches (e.g. Pump, Column Selector)
         switches = getattr(self.config, "SYSTEM_SWITCHES", [])
         for idx, sw in enumerate(switches):
             key = sw["key"]
@@ -314,7 +316,6 @@ class BaseAppFrame(ttk.Frame):
                 var = tk.BooleanVar(value=bool(sw.get("default", True)))
                 self._switch_vars[key] = var
 
-                # Build option frame
                 rf = ttk.Frame(f)
                 rf.grid(row=3 + idx, column=0, padx=5, pady=10, sticky="nsew")
                 
@@ -336,7 +337,6 @@ class BaseAppFrame(ttk.Frame):
         f = ttk.Frame(parent)
         f.grid(row=row, column=col, columnspan=columnspan, padx=(20, 10), pady=(10, 10), sticky="nsew")
 
-        # Logo Image
         logo_path = getattr(self.config, "LOGO_FILE", "assets/tipice_logo.png")
         try:
             self._logo_img = tk.PhotoImage(file=logo_path)
@@ -344,7 +344,6 @@ class BaseAppFrame(ttk.Frame):
         except Exception:
             ttk.Label(f, text="[logo]").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
 
-        # Department text
         dept_text = "BYU TIPICE"
         ttk.Label(f, text=dept_text, font=("Copperplate Gothic Bold", 35), wraplength=200).grid(
             row=0, column=1, padx=(10, 10), pady=5, sticky="nsew"
@@ -377,19 +376,24 @@ class BaseAppFrame(ttk.Frame):
             style="ToggleButton", command=self._on_toggle_logging,
             padding=(20, 20), state="disabled",
         )
-        self._toggle_logging_btn.grid(row=0, rowspan=4, column=0, padx=20, pady=(20, 5), sticky="nsew")
+        self._toggle_logging_btn.grid(row=0, rowspan=6, column=0, padx=20, pady=(10, 5), sticky="nsew")
         
-        ttk.Label(f, text="Interval (s)").grid(row=0, column=1, padx=5, pady=(20, 5), sticky="nsew")
+        # Run ID (Historian Label)
+        ttk.Label(f, text="Run ID (Label):").grid(row=0, column=1, padx=5, pady=(5, 0), sticky="w")
+        self._run_id_entry = ttk.Entry(f, textvariable=self._run_id_var, width=15)
+        self._run_id_entry.grid(row=1, column=1, padx=5, pady=(0, 5), sticky="ew")
+
+        ttk.Label(f, text="Interval (s)").grid(row=2, column=1, padx=5, pady=(5, 0), sticky="w")
         ttk.Spinbox(
             f, from_=0.1, to=100.0, textvariable=self._log_interval_var,
-            width=5, state="normal",
-        ).grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+            width=8, state="normal",
+        ).grid(row=3, column=1, padx=5, pady=(0, 5), sticky="ew")
 
-        ttk.Label(f, text="Data Point Count").grid(row=2, column=1, padx=5, pady=5, sticky="nsew")
+        ttk.Label(f, text="Data Point Count").grid(row=4, column=1, padx=5, pady=(5, 0), sticky="w")
         self._data_point_entry = ttk.Entry(
             f, textvariable=self._data_point_count, state="disabled", width=8
         )
-        self._data_point_entry.grid(row=3, column=1, padx=5, pady=5, sticky="nsew")
+        self._data_point_entry.grid(row=5, column=1, padx=5, pady=(0, 5), sticky="ew")
 
     def _build_sensor_panel(self, parent, sp_cfg):
         title = sp_cfg["title"]
@@ -416,11 +420,10 @@ class BaseAppFrame(ttk.Frame):
         colspan = panel_cfg.get("columnspan", 1)
 
         f = ttk.LabelFrame(parent, text=title, padding=(20, 10))
-        f.grid(row=row, column=col, columnspan=colspan, padx=(20, 10), pady=(10, 10), sticky="nsew")
+        f.grid(row=row, column=col, columnspan=colspan, padx=(10, 10), pady=(10, 10), sticky="nsew")
 
         outputs = panel_cfg.get("outputs", [])
         
-        # Build manual controls
         for idx, key in enumerate(outputs):
             cfg = self.config.MANUAL_ANALOG_OUTPUTS.get(key)
             if not cfg:
@@ -444,11 +447,9 @@ class BaseAppFrame(ttk.Frame):
             sb.grid(row=idx * 2 + 1, column=0, padx=5, pady=(5, 10), sticky="nsew")
             self._manual_analog_widgets.append(sb)
 
-        # Embedded read-only sensors
         sensors = panel_cfg.get("sensors", [])
         for idx, key in enumerate(sensors):
             if key in self.sensors:
-                # Place below the output spinboxes
                 w = build_sensor_display(f, self.sensors[key], row=len(outputs) * 2 + idx * 2, col=0)
                 self._sensor_widgets[key] = w
 
@@ -457,7 +458,6 @@ class BaseAppFrame(ttk.Frame):
     # ══════════════════════════════════════════════════════════════════
 
     def _set_initial_states(self):
-        """Disable everything until LabJack is connected."""
         self._power_switch.configure(state="disabled")
         self._toggle_logging_btn.configure(state="disabled")
         
@@ -471,7 +471,6 @@ class BaseAppFrame(ttk.Frame):
             disable_loop_widgets(kw)
 
     def _enable_powered_controls(self):
-        """Enable controls when main power is turned ON."""
         self._toggle_logging_btn.configure(state="normal")
         
         for w in self._switch_widgets:
@@ -484,7 +483,6 @@ class BaseAppFrame(ttk.Frame):
             enable_loop_widgets(kw)
 
     def _disable_powered_controls(self):
-        """Disable controls and reset outputs to safe states when power is OFF."""
         self._toggle_logging_btn.configure(state="disabled")
         
         for w in self._switch_widgets:
@@ -496,13 +494,12 @@ class BaseAppFrame(ttk.Frame):
         for kw in self._loop_widgets.values():
             disable_loop_widgets(kw)
 
-        # Stop logging if running
         if self.logger.is_logging:
             self.logger.stop()
             self._logging_text_var.set("Start Logging")
+            self._run_id_entry.config(state="normal")
             self._data_point_count.set(0)
 
-        # Reset switch variables to false and update label texts
         for key, var in self._switch_vars.items():
             var.set(False)
             
@@ -510,14 +507,11 @@ class BaseAppFrame(ttk.Frame):
             if label is not None:
                 widget.config(text=f"{label}: OFF")
 
-        # Zero all physical outputs on LabJack (if connected)
         if self.daq.is_connected:
-            # Main power pin
             main_power_pin = getattr(self.config, "MAIN_POWER_PIN", None)
             if main_power_pin and main_power_pin != "TODO" and main_power_pin != "":
                 self.daq.write(main_power_pin, 0.0)
             
-            # Other digital outputs
             switches = getattr(self.config, "SYSTEM_SWITCHES", [])
             for sw in switches:
                 pin = sw.get("pin")
@@ -525,12 +519,10 @@ class BaseAppFrame(ttk.Frame):
                     inactive_val = sw.get("inactive_value", 0.0)
                     self.daq.write(pin, inactive_val)
                     
-            # Loop output pins
             for loop in self.loops.values():
                 self.daq.write(loop.output_pin, 0.0)
                 loop.set_valve_display(0.0)
                 
-            # Manual analog outputs
             mao_panel_cfg = getattr(self.config, "MANUAL_ANALOG_OUTPUTS_PANEL", None)
             if mao_panel_cfg:
                 for key in mao_panel_cfg.get("outputs", []):
@@ -554,7 +546,6 @@ class BaseAppFrame(ttk.Frame):
         try:
             self.daq.connect(model, connection, identifier)
             
-            # Configure channels (AIN settings) if specified
             ain_configs = getattr(self.config, "AIN_CONFIGS", {})
             for ch, settings in ain_configs.items():
                 for register, value in settings.items():
@@ -564,8 +555,6 @@ class BaseAppFrame(ttk.Frame):
             self._status_lbl.config(text="CONNECTED", foreground="green")
             self._power_switch.configure(state="normal")
             
-            # Write initial states of digital switches if device is connected but main power is off
-            # (or wait until main power is on)
         except Exception as exc:
             self._connection_status.config(text=f"Failed: {exc}", style="Red.TLabel")
             self._status_lbl.config(text="CONNECTION FAILED", foreground="red")
@@ -636,13 +625,14 @@ class BaseAppFrame(ttk.Frame):
             self.logger.set_interval(self._log_interval_var.get())
             self.logger.start()
             self._logging_text_var.set("Stop Logging")
+            self._run_id_entry.config(state="disabled")
         else:
             self.logger.stop()
             self._logging_text_var.set("Start Logging")
+            self._run_id_entry.config(state="normal")
             self._data_point_count.set(0)
 
     def _on_mousewheel(self, event):
-        # Universal cross-platform mouse wheel scroll
         if event.delta in (1, -1):
             scroll = -event.delta * 3
         else:
@@ -662,7 +652,6 @@ class BaseAppFrame(ttk.Frame):
         if not self._polling:
             return
 
-        # Update cold junction temperature for thermocouple compensation if defined
         cj_register = getattr(self.config, "COLD_JUNCTION_REGISTER", None)
         if cj_register and self.daq.is_connected:
             try:
@@ -672,7 +661,6 @@ class BaseAppFrame(ttk.Frame):
             except Exception:
                 pass
 
-        # Read and update all sensors
         for sensor in self.sensors.values():
             if not sensor.is_configured():
                 sensor.set_error()
@@ -690,20 +678,17 @@ class BaseAppFrame(ttk.Frame):
             return
 
         for key, loop in self.loops.items():
-            # ── Read Process Variable ──
             try:
                 raw = self.daq.read(loop.input_pin)
                 loop.set_measured(loop.apply_calibration(raw))
             except Exception:
                 loop.set_error()
 
-            # ── Gating checks ──
             if hasattr(loop, "gate_switch") and loop.gate_switch in self._switch_vars:
                 current_gate_val = self._switch_vars[loop.gate_switch].get()
                 if current_gate_val != loop.gate_value:
-                    continue  # Loop is inactive, don't write to output pin
+                    continue
 
-            # ── Write Output ──
             try:
                 if loop.is_auto:
                     sp = loop.get_setpoint()
@@ -748,10 +733,7 @@ class BaseAppFrame(ttk.Frame):
     # ══════════════════════════════════════════════════════════════════
 
     def _go_back(self):
-        # Stop background polling loops
         self._polling = False
-        
-        # Turn off power safely and close LabJack interface
         self._disconnect()
         
         if self.on_back:
