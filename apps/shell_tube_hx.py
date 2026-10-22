@@ -128,6 +128,9 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
 
         super().__init__(parent, config, daq, on_back)
 
+        # Trace changes to Experiment ID to update logging button state dynamically
+        self._experiment_id_var.trace_add("write", self._validate_experiment_id)
+
         # Sync pump variable in switch variables
         self._switch_vars["pump"] = self._pump_var
 
@@ -226,6 +229,13 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
             padding=(15, 12), state="disabled")
         self._log_btn.pack(fill="x", pady=4)
         self._toggle_logging_btn = self._log_btn
+
+        # Experiment ID Entry
+        r_exp = ttk.Frame(log)
+        r_exp.pack(fill="x", pady=2)
+        ttk.Label(r_exp, text="Experiment ID:").pack(side="left")
+        self._experiment_id_entry = ttk.Entry(r_exp, textvariable=self._experiment_id_var, width=12)
+        self._experiment_id_entry.pack(side="right")
 
         r = ttk.Frame(log)
         r.pack(fill="x", pady=2)
@@ -486,6 +496,18 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
         self._pid.tag_raise("particle")
         self.after(self.ANIM_MS, self._animate)
 
+    def _validate_experiment_id(self, *args):
+        """Enable logging button only if Main Power is ON and Experiment ID is valid."""
+        if not getattr(self, "_main_power_on", False):
+            return
+        
+        exp_id = self._experiment_id_var.get().strip()
+        if exp_id and exp_id != "YYMMDD_GroupName":
+            self._log_btn.configure(state="normal")
+        else:
+            if not self.logger.is_logging:
+                self._log_btn.configure(state="disabled")
+
     def _set_initial_states(self):
         self._power_sw.configure(state="disabled")
         self._pump_sw.configure(state="disabled")
@@ -531,8 +553,8 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
 
     def _enable_powered_controls(self):
         super()._enable_powered_controls()
+        self._validate_experiment_id()
         self._pump_sw.configure(state="normal")
-        self._log_btn.configure(state="normal")
         self._set_loop_panel_states(True)
         self._update_pump_indicator()
 
@@ -548,6 +570,12 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
             self._pump_sw.config(text="Pump: OFF")
             self.daq.write(self.config.SYSTEM_SWITCHES[0]["pin"], 0)
             self._pump_status_str.set("OFF")
+
+        if self.logger.is_logging:
+            self.logger.stop()
+            self._logging_text_var.set("Start Logging")
+            self._experiment_id_entry.config(state="normal")
+            self._data_point_count.set(0)
 
         self._update_pump_indicator()
 
@@ -621,9 +649,11 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
             self.logger.set_interval(self._log_interval_var.get())
             self.logger.start()
             self._logging_text_var.set("Stop Logging")
+            self._experiment_id_entry.config(state="disabled")
         else:
             self.logger.stop()
             self._logging_text_var.set("Start Logging")
+            self._experiment_id_entry.config(state="normal")
             self._data_point_count.set(0)
 
     def _on_theme_toggle(self):

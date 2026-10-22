@@ -48,6 +48,9 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
 
         super().__init__(parent, config, daq, on_back)
 
+        # Trace changes to Experiment ID to update logging button state dynamically
+        self._experiment_id_var.trace_add("write", self._validate_experiment_id)
+
         # Sync air valve percent variable on setpoint write
         self._air_setpoint_var.trace_add("write", lambda *a: self._sync_air_valve_percent())
         
@@ -165,6 +168,13 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         self._log_btn.pack(fill="x", pady=4)
         self._toggle_logging_btn = self._log_btn
 
+        # Experiment ID Entry
+        r_exp = ttk.Frame(log)
+        r_exp.pack(fill="x", pady=2)
+        ttk.Label(r_exp, text="Experiment ID:").pack(side="left")
+        self._experiment_id_entry = ttk.Entry(r_exp, textvariable=self._experiment_id_var, width=12)
+        self._experiment_id_entry.pack(side="right")
+
         r = ttk.Frame(log)
         r.pack(fill="x", pady=2)
         ttk.Label(r, text="Interval (s)").pack(side="left")
@@ -247,19 +257,12 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         self._pid.create_window(821, 21, window=self._col2_lbl, anchor="center")
 
         overlays = [
-            # Single active column readings in the center
             (576, 316, "Column 1 Pressure Drop\n(kPa)", self._active_pressure_drop_var, "dp"),
             (576, 426, "Column 1 Level\n(mm)", self._active_level_var, "level"),
-
-            # Water Line readings (Right top)
             (1167, 48, "Water Flowrate\n(L/min)", lps["water_flow"].measured_var),
             (1167, 144, "Water Temp\n(°C)", s["water_temperature"].value_var),
             (937, 220, "Water Flow Valve\n(%)", lps["water_flow"].rounded_valve_position),
-
-            # Water Exit Line reading (Left bottom)
             (156, 660, "Water Exit Valve\n(%)", self._water_exit_valve_percent_var),
-
-            # Air Line readings (Right bottom)
             (684, 694, "Air Flowrate\n(SLPM)", s["air_flowrate"].value_var),
             (576, 117, "CO₂ Concentration\n(ppm)", s["co2_concentration"].value_var),
             (915, 715, "Air Valve\n(%)", self._air_valve_percent_var),
@@ -284,11 +287,9 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
             self._overlay_cards.append(card)
 
     def _build_horizontal_panels(self):
-        # 1. Water control loop panel
         w_widgets = self._build_simple_loop_panel(self._sf, "water_flow", self.loops["water_flow"], row=1, col=1)
         self._simple_panel_widgets["water_flow"] = w_widgets
 
-        # 2. Level control loop panel (initially column 1 level)
         self._level_panel_frame = ttk.LabelFrame(self._sf, text="Level Control - Column 1", padding=(12, 8))
         self._level_panel_frame.grid(row=1, column=2, padx=8, pady=5, sticky="nsew")
         self._level_panel_frame.columnconfigure(1, weight=1)
@@ -296,7 +297,6 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         l_widgets = self._build_simple_level_panel_contents(self._level_panel_frame)
         self._simple_panel_widgets["level"] = l_widgets
 
-        # 3. Air flow control panel
         a_widgets = self._build_air_flow_panel(self._sf, row=1, col=3)
         self._simple_panel_widgets["air_flow"] = a_widgets
 
@@ -307,14 +307,12 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
 
         widgets = {}
 
-        # Setpoint
         ttk.Label(f, text=f"Setpoint ({loop.unit})", wraplength=110).grid(row=0, column=0, sticky="w", padx=4, pady=4)
         sp = ttk.Spinbox(f, from_=loop.setpoint_min, to=loop.setpoint_max,
                          textvariable=loop.setpoint_var, width=8, state="disabled")
         sp.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
         widgets["sp"] = sp
 
-        # Mode switch, Slider, and Spinbox manual entry all on the same row
         row1_frame = ttk.Frame(f)
         row1_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=4, pady=6)
 
@@ -368,7 +366,6 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         spinbox.bind("<Return>", _commit_spinbox)
         spinbox.bind("<FocusOut>", _commit_spinbox)
 
-        # PID constants in a row (centered)
         pid_f = ttk.Frame(f)
         pid_f.grid(row=2, column=0, columnspan=2, sticky="", padx=4, pady=(6, 4))
 
@@ -390,14 +387,12 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         loop = self.loops["column1_level"]
         widgets = {}
 
-        # Setpoint
         ttk.Label(frame, text=f"Setpoint ({loop.unit})", wraplength=110).grid(row=0, column=0, sticky="w", padx=4, pady=4)
         sp = ttk.Spinbox(frame, from_=loop.setpoint_min, to=loop.setpoint_max,
                          textvariable=loop.setpoint_var, width=8, state="disabled")
         sp.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
         widgets["sp"] = sp
 
-        # Mode switch, Slider, and Spinbox manual entry all on the same row
         row1_frame = ttk.Frame(frame)
         row1_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=4, pady=6)
 
@@ -475,7 +470,6 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         spinbox.bind("<Return>", _commit_spinbox)
         spinbox.bind("<FocusOut>", _commit_spinbox)
 
-        # PID constants row (centered)
         pid_f = ttk.Frame(frame)
         pid_f.grid(row=2, column=0, columnspan=2, sticky="", padx=4, pady=(6, 4))
 
@@ -502,14 +496,11 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
 
         widgets = {}
 
-        # Setpoint
         ttk.Label(f, text="Setpoint (SLPM)", wraplength=110).grid(row=0, column=0, sticky="w", padx=4, pady=4)
         sp = ttk.Spinbox(f, from_=0, to=1000, textvariable=self._air_setpoint_var, width=8, state="disabled")
         sp.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
         widgets["sp"] = sp
 
-        # Slider
-        ttk.Label(f, text="Adjust Flow").grid(row=1, column=0, sticky="w", padx=4, pady=(4, 2))
         slider_frame = ttk.Frame(f)
         slider_frame.grid(row=1, column=1, sticky="ew", padx=4, pady=(4, 2))
         slider_frame.columnconfigure(0, weight=1)
@@ -527,23 +518,29 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
             except ValueError:
                 pass
         self._air_setpoint_var.trace_add("write", _sync_air_spinbox)
-
-        pct_lbl = ttk.Label(slider_frame, textvariable=self._air_setpoint_var, width=4)
-        pct_lbl.grid(row=0, column=1, padx=(4, 0))
         widgets["slider"] = slider
 
-        # Read-only Sensor Entries
         ttk.Label(f, text="Air Flowrate (SLPM)").grid(row=2, column=0, sticky="w", padx=4, pady=(6, 2))
         entry_air = ttk.Entry(f, textvariable=self.sensors["air_flowrate"].value_var, state="disabled", width=8)
         entry_air.grid(row=2, column=1, sticky="ew", padx=4, pady=(6, 2))
-        widgets["sensor_air"] = entry_air
 
         ttk.Label(f, text="Delta CO2 (ppm)").grid(row=3, column=0, sticky="w", padx=4, pady=(6, 2))
         entry_co2 = ttk.Entry(f, textvariable=self.sensors["co2_concentration"].value_var, state="disabled", width=8)
         entry_co2.grid(row=3, column=1, sticky="ew", padx=4, pady=(6, 2))
-        widgets["sensor_co2"] = entry_co2
 
         return widgets
+
+    def _validate_experiment_id(self, *args):
+        """Enable logging button only if Main Power is ON and Experiment ID is valid."""
+        if not getattr(self, "_main_power_on", False):
+            return
+        
+        exp_id = self._experiment_id_var.get().strip()
+        if exp_id and exp_id != "YYMMDD_GroupName":
+            self._log_btn.configure(state="normal")
+        else:
+            if not self.logger.is_logging:
+                self._log_btn.configure(state="disabled")
 
     def _set_initial_states(self):
         self._power_sw.configure(state="disabled")
@@ -553,7 +550,6 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         self._set_loop_panel_states(False)
 
     def _set_loop_panel_states(self, enabled):
-        # 1. Water panel states
         w_widgets = self._simple_panel_widgets["water_flow"]
         w_loop = self.loops["water_flow"]
         if enabled:
@@ -579,7 +575,6 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
                 except Exception: pass
             w_widgets["mode"].configure(text="MANUAL")
 
-        # 2. Level panel states
         l_widgets = self._simple_panel_widgets["level"]
         col1_active = self._col_select_var.get()
         l_loop = self.loops["column1_level"] if col1_active else self.loops["column2_level"]
@@ -606,7 +601,6 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
                 except Exception: pass
             l_widgets["mode"].configure(text="MANUAL")
 
-        # 3. Air panel states
         a_widgets = self._simple_panel_widgets["air_flow"]
         if enabled:
             a_widgets["sp"].configure(state="normal")
@@ -617,7 +611,7 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
 
     def _enable_powered_controls(self):
         super()._enable_powered_controls()
-        self._log_btn.configure(state="normal")
+        self._validate_experiment_id()
         self._col1_radio.configure(state="normal")
         self._col2_radio.configure(state="normal")
         self._set_loop_panel_states(True)
@@ -628,6 +622,11 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         self._col1_radio.configure(state="disabled")
         self._col2_radio.configure(state="disabled")
         self._set_loop_panel_states(False)
+        if self.logger.is_logging:
+            self.logger.stop()
+            self._logging_text_var.set("Start Logging")
+            self._experiment_id_entry.config(state="normal")
+            self._data_point_count.set(0)
 
     def _on_connection_choice(self, choice):
         if choice == "USB":       self._connect("T7", "USB",      "ANY")
@@ -665,12 +664,12 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
             self._power_sw.config(text="Main Power: ON")
             self.daq.write(self.config.MAIN_POWER_PIN, 1)
             self._enable_powered_controls()
-            self._on_column_select() # Sync hardware state now that it's ENABLED
+            self._on_column_select()
         else:
             self._power_sw.config(text="Main Power: OFF")
             self.daq.write(self.config.MAIN_POWER_PIN, 0)
             self._disable_powered_controls()
-            self._col_select_var.set(True) # Fix column selector glitch
+            self._col_select_var.set(True)
             self.daq.safety.transition_to(SafetyState.CONNECTED_SAFE)
 
     def _on_column_select(self, *_args):
@@ -690,13 +689,11 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
             self._col2_lbl.config(bg="#2E7D32", fg="white")
             self._col2_indicator_val.set("COLUMN 2 (ACTIVE)")
 
-        # Update active labels on the P&ID canvas
         if hasattr(self, "_active_dp_lbl_widget"):
             self._active_dp_lbl_widget.config(text=f"Column {col_num} Pressure Drop\n(kPa)")
         if hasattr(self, "_active_level_lbl_widget"):
             self._active_level_lbl_widget.config(text=f"Column {col_num} Level\n(mm)")
 
-        # Update level panel bindings
         self._update_level_panel_bindings()
         self._set_loop_panel_states(self._main_power_on)
 
@@ -705,21 +702,17 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         active_key = "column1_level" if col1_active else "column2_level"
         loop = self.loops[active_key]
 
-        # Update panel title
         self._level_panel_frame.config(text=f"Level Control - Column {1 if col1_active else 2}")
 
-        # Update widget configurations to point to active loop variables
         widgets = self._simple_panel_widgets["level"]
         widgets["sp"].config(textvariable=loop.setpoint_var, from_=loop.setpoint_min, to=loop.setpoint_max)
         widgets["slider"].config(variable=loop.valve_position)
         widgets["spinbox"].config(textvariable=loop.rounded_valve_position)
         
-        # update PID entries
         widgets["pid_Kc"].config(textvariable=loop.Kc_var)
         widgets["pid_Ti"].config(textvariable=loop.Ti_var)
         widgets["pid_Td"].config(textvariable=loop.Td_var)
 
-        # Sync mode toggle variable
         self._level_mode_auto_var.set(loop.is_auto)
 
     def _on_toggle_logging(self):
@@ -727,9 +720,11 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
             self.logger.set_interval(self._log_interval_var.get())
             self.logger.start()
             self._logging_text_var.set("Stop Logging")
+            self._experiment_id_entry.config(state="disabled")
         else:
             self.logger.stop()
             self._logging_text_var.set("Start Logging")
+            self._experiment_id_entry.config(state="normal")
             self._data_point_count.set(0)
 
     def _on_theme_toggle(self):
@@ -757,7 +752,6 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         super()._update_all_sensors()
         if not self._polling:
             return
-        # Update active pressure drop variable
         col1_active = self._col_select_var.get()
         active_dp_key = "column1_pressure_drop" if col1_active else "column2_pressure_drop"
         if active_dp_key in self.sensors:
@@ -776,7 +770,7 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
     def _sync_air_valve_percent(self):
         try:
             val = float(self._air_setpoint_var.get())
-            pct = round(val / 150.0 * 100.0) # Scale based on max setpoint 150 SLPM
+            pct = round(val / 150.0 * 100.0)
             self._air_valve_percent_var.set(f"{pct}")
         except ValueError:
             self._air_valve_percent_var.set("0")

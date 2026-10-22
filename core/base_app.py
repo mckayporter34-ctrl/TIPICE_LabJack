@@ -60,7 +60,10 @@ class BaseAppFrame(ttk.Frame):
         self._logging_text_var = tk.StringVar(value="Start Logging")
         self._log_interval_var = tk.DoubleVar(value=1.0)
         self._data_point_count = tk.IntVar(value=0)
-        self._run_id_var = tk.StringVar(value="YYMMDD_GroupName")
+        self._experiment_id_var = tk.StringVar(value="YYMMDD_GroupName")
+        
+        # Trace changes to Experiment ID to update logging button state dynamically
+        self._experiment_id_var.trace_add("write", self._validate_experiment_id)
 
         # Dynamic switches vars
         self._switch_vars = {}
@@ -169,7 +172,7 @@ class BaseAppFrame(ttk.Frame):
             folder=getattr(self.config, "LOG_FOLDER", "LoggedData"),
             count_var=self._data_point_count,
             unit_op=unit_op,
-            run_id_var=self._run_id_var,
+            experiment_id_var=self._experiment_id_var,
         )
 
     # ══════════════════════════════════════════════════════════════════
@@ -378,10 +381,10 @@ class BaseAppFrame(ttk.Frame):
         )
         self._toggle_logging_btn.grid(row=0, rowspan=6, column=0, padx=20, pady=(10, 5), sticky="nsew")
         
-        # Run ID (Historian Label)
-        ttk.Label(f, text="Run ID (Label):").grid(row=0, column=1, padx=5, pady=(5, 0), sticky="w")
-        self._run_id_entry = ttk.Entry(f, textvariable=self._run_id_var, width=15)
-        self._run_id_entry.grid(row=1, column=1, padx=5, pady=(0, 5), sticky="ew")
+        # Experiment ID Entry
+        ttk.Label(f, text="Experiment ID:").grid(row=0, column=1, padx=5, pady=(5, 0), sticky="w")
+        self._experiment_id_entry = ttk.Entry(f, textvariable=self._experiment_id_var, width=15)
+        self._experiment_id_entry.grid(row=1, column=1, padx=5, pady=(0, 5), sticky="ew")
 
         ttk.Label(f, text="Interval (s)").grid(row=2, column=1, padx=5, pady=(5, 0), sticky="w")
         ttk.Spinbox(
@@ -470,8 +473,20 @@ class BaseAppFrame(ttk.Frame):
         for kw in self._loop_widgets.values():
             disable_loop_widgets(kw)
 
+    def _validate_experiment_id(self, *args):
+        """Enable logging button only if Main Power is ON and Experiment ID is valid."""
+        if not getattr(self, "_main_power_on", False):
+            return
+        
+        exp_id = self._experiment_id_var.get().strip()
+        if exp_id and exp_id != "YYMMDD_GroupName":
+            self._toggle_logging_btn.configure(state="normal")
+        else:
+            if not self.logger.is_logging:
+                self._toggle_logging_btn.configure(state="disabled")
+
     def _enable_powered_controls(self):
-        self._toggle_logging_btn.configure(state="normal")
+        self._validate_experiment_id()
         
         for w in self._switch_widgets:
             w[0].configure(state="normal")
@@ -497,7 +512,7 @@ class BaseAppFrame(ttk.Frame):
         if self.logger.is_logging:
             self.logger.stop()
             self._logging_text_var.set("Start Logging")
-            self._run_id_entry.config(state="normal")
+            self._experiment_id_entry.config(state="normal")
             self._data_point_count.set(0)
 
         for key, var in self._switch_vars.items():
@@ -625,11 +640,11 @@ class BaseAppFrame(ttk.Frame):
             self.logger.set_interval(self._log_interval_var.get())
             self.logger.start()
             self._logging_text_var.set("Stop Logging")
-            self._run_id_entry.config(state="disabled")
+            self._experiment_id_entry.config(state="disabled")
         else:
             self.logger.stop()
             self._logging_text_var.set("Start Logging")
-            self._run_id_entry.config(state="normal")
+            self._experiment_id_entry.config(state="normal")
             self._data_point_count.set(0)
 
     def _on_mousewheel(self, event):

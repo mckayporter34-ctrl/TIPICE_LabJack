@@ -28,13 +28,13 @@ class DataLogger:
     in a background thread.
     """
 
-    def __init__(self, sources: dict, influx_sources: dict, folder: str, count_var, unit_op: str, run_id_var):
+    def __init__(self, sources: dict, influx_sources: dict, folder: str, count_var, unit_op: str, experiment_id_var):
         self._sources        = sources          # {header: callable} for CSV
         self._influx_sources = influx_sources   # {field_name: callable} for InfluxDB
         self._folder         = folder
         self._count_var      = count_var
         self._unit_op        = unit_op
-        self._run_id_var     = run_id_var
+        self._run_id_var     = experiment_id_var
 
         self._is_logging  = False
         self._stop_event  = Event()
@@ -64,7 +64,7 @@ class DataLogger:
         self._stop_event.clear()
         self._count_var.set(0)
         
-        # Capture current Run ID value upon start
+        # Capture current Experiment ID value upon start
         self._active_run_id = self._run_id_var.get().strip() or "Unnamed_Run"
         
         Thread(target=self._run, daemon=True).start()
@@ -107,7 +107,6 @@ class DataLogger:
                                     point.field(field_name, numeric_val)
                                     has_valid_fields = True
                                 except (ValueError, TypeError):
-                                    # Handle categorical string fields if needed
                                     pass
 
                         if has_valid_fields:
