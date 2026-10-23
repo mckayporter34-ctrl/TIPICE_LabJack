@@ -34,5 +34,28 @@ AVAILABLE_CONFIGS = {
         "units": [
             {"name": "Unit #1", "module": "configs.packed_columns"}
         ]
+    },
+    "nonnewtonian": {
+        "development": True,
+        "title": "Non-Newtonian Fluids",
+        "subtitle": "Flow Measurement and Control",
+        "image": "PI diagrams/NonNewtonaion_1_V1.png",
+        "active": True,
+        "accent": "#2f81f7",
+        "units": [
+            {"name": "Unit #1", "module": "configs.nonnewtonian_1"},
+            {"name": "Unit #2", "module": "configs.nonnewtonian_2"}
+        ]
+    },
+    "airflow": {
+        "development": True,
+        "title": "Air Flow Meters",
+        "subtitle": "Airflow Measurement and Control",
+        "image": "images/Air_Flow_Apparatus.png",
+        "active": True,
+        "accent": "#2f81f7",
+        "units": [
+            {"name": "CB217A · Peter", "module": "configs.airflow"}
+        ]
     }
 }

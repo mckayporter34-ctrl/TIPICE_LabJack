@@ -141,6 +141,9 @@ def build_control_loop_panel(
         else:
             loop.pid.reset()
             mode_switch.config(text="Mode: MANUAL")
+        sp_spinbox.configure(state="disabled" if loop.is_auto else "normal")
+        scale.configure(state="disabled" if loop.is_auto else "normal")
+        spinbox.configure(state="disabled" if loop.is_auto else "normal")
 
     mode_switch = ttk.Checkbutton(
         frame,
@@ -249,7 +252,7 @@ def build_control_loop_panel(
 # Enable / disable helpers  (called by app.py on power toggle)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def enable_loop_widgets(widgets: dict):
+def enable_loop_widgets(widgets: dict, loop=None):
     """Enable all interactive widgets in a control loop panel."""
     states = {
         "setpoint_spinbox":  "normal",
@@ -268,6 +271,11 @@ def enable_loop_widgets(widgets: dict):
     for role, state in states.items():
         if role in widgets:
             widgets[role].configure(state=state)
+    if loop is not None and loop.is_auto:
+        widgets["setpoint_spinbox"].configure(state="disabled")
+        for role in ("scale", "manual_spinbox"):
+            if role in widgets:
+                widgets[role].configure(state="disabled")
 
 
 def disable_loop_widgets(widgets: dict):

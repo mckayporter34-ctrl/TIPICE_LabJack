@@ -46,3 +46,46 @@ We have provided convenient scripts to automatically create a virtual environmen
 ## Legacy Code
 
 Older standalone versions of the code and legacy scripts have been moved to the `Archive/` directory to keep the main repository clean.
+
+## Development systems
+
+The main selector shows the Shell & Tube Heat Exchangers, Catalytic Methanation,
+and Packed Column. Use the **Development** button at the top of the selector and
+enter `dietcoke` to access Airflow and Non-Newtonian Fluids. An incorrect password
+or Cancel leaves the selector locked. **Back to Main Selector** locks the
+development section again; returning from a development control panel keeps you
+in that section until you leave it or close the application.
+
+This password is an operator access gate in the desktop interface. Anyone with
+access to the source code can change it.
+
+## Airflow System
+
+In **Development**, select **Air Flow Meters → CB217A · Peter**. It uses the
+supplied airflow P&ID, with ΔP readings on the canvas and
+entrance pressures in the panel below. See [airflow setup and channel mapping](docs/airflow.md)
+for the workbook mapping and hardware settings to verify before commissioning.
+
+## Non-Newtonian Fluids
+
+Select **Unit #1** or **Unit #2** in the **Non-Newtonian Fluids** dropdown on the
+Development selector. Each supplied P&ID shows live temperature, pressure drop, flow and
+output command. Unit #1 controls pump speed with 0–10 V; Unit #2 controls a
+0–5 V valve to regulate 0–45 GPM flow. See the
+[Non-Newtonian setup and operation guide](docs/nonnewtonian.md) for channel
+assignments, operation and initial tuning settings.
+
+## Historian logging
+
+Local CSV logging also supports the InfluxDB historian and captures the Experiment
+ID as the run label when logging starts. Network writes run separately so a
+historian outage does not stop local CSV capture.
+
+Set `INFLUX_TOKEN` in the environment or in a `.historian.local.json` file in the
+repository root. This file is ignored by Git. `INFLUX_URL`, `INFLUX_ORG`, and
+`INFLUX_BUCKET` can be set the same way; environment values take precedence.
+Without a token or the optional InfluxDB library, local CSV logging still works.
+
+The standalone service is in `Historian/Historian.py` and uses the same settings.
+Install `requirements.txt` before running it. Credentials and local recording
+files are excluded from commits.

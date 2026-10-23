@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional, List
 
 from core.pid_controller import PIDController
+from core.numeric_entry import finite_number
 
 
 @dataclass
@@ -57,9 +58,9 @@ class ControlLoop:
     rounded_valve_position: tk.IntVar    = field(default_factory=tk.IntVar)
 
     # PID tuning vars — bound to the Kc / Ti / Td spinboxes in the panel.
-    Kc_var: tk.DoubleVar = field(default_factory=tk.DoubleVar)
-    Ti_var: tk.DoubleVar = field(default_factory=tk.DoubleVar)
-    Td_var: tk.DoubleVar = field(default_factory=tk.DoubleVar)
+    Kc_var: tk.StringVar = field(default_factory=tk.StringVar)
+    Ti_var: tk.StringVar = field(default_factory=tk.StringVar)
+    Td_var: tk.StringVar = field(default_factory=tk.StringVar)
 
     # Mode flag: True = PID is active, False = operator controls slider manually.
     is_auto: bool = False
@@ -86,7 +87,7 @@ class ControlLoop:
         return self.calibration(raw_voltage)
 
     def set_measured(self, value: float, decimals: int = 2):
-        self.measured_var.set(f"{value:.{decimals}f}")
+        self.measured_var.set(f"{finite_number(value):.{decimals}f}")
 
     def set_error(self):
         self.measured_var.set("Error")
@@ -94,31 +95,33 @@ class ControlLoop:
     def get_setpoint(self) -> Optional[float]:
         """Return the current setpoint as a float, or None if not parseable."""
         try:
-            return float(self.setpoint_var.get())
-        except ValueError:
+            return finite_number(self.setpoint_var.get())
+        except (ValueError, TypeError, OverflowError, tk.TclError):
             return None
 
     def get_measured(self) -> Optional[float]:
         """Return the current measurement as a float, or None if not parseable."""
         try:
-            return float(self.measured_var.get())
-        except ValueError:
+            return finite_number(self.measured_var.get())
+        except (ValueError, TypeError, OverflowError, tk.TclError):
             return None
 
     def get_manual_voltage(self) -> float:
-        """Convert the 0–100 slider value to a 0–5 V output."""
-        return 0.05 * self.rounded_valve_position.get()
+        """Map bounded percent to the configured PID output range (default 0–5 V)."""
+        percent = max(0.0, min(100.0, finite_number(self.rounded_valve_position.get())))
+        return self.pid.output_min + percent / 100.0 * (self.pid.output_max - self.pid.output_min)
 
     def sync_tuning_to_pid(self):
         """Push the current spinbox values into the PIDController object."""
         self.pid.update_tuning(
-            Kc=self.Kc_var.get(),
-            Ti=self.Ti_var.get(),
-            Td=self.Td_var.get(),
+            Kc=finite_number(self.Kc_var.get()),
+            Ti=finite_number(self.Ti_var.get()),
+            Td=finite_number(self.Td_var.get()),
         )
 
     def set_valve_display(self, voltage: float):
-        """Convert a 0–5 V output back to 0–100 % for the progress bar / slider."""
-        percent = voltage * 20.0      # 5 V → 100 %
+        """Map the configured output range back to a bounded percent display."""
+        span = self.pid.output_max - self.pid.output_min
+        percent = max(0.0, min(100.0, (finite_number(voltage) - self.pid.output_min) / span * 100.0))
         self.valve_position.set(percent)
         self.rounded_valve_position.set(round(percent))

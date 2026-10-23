@@ -22,6 +22,7 @@ from core.ui_builders import (
     disable_loop_widgets,
 )
 from core.data_logger import DataLogger
+from core.numeric_entry import finite_number, install_numeric_validation
 from core.safety import SafetyState
 
 UPDATE_INTERVAL_MS = 500
@@ -35,6 +36,9 @@ UNIT_OP_MAP = {
     "Shell & Tube Heat Exchanger #1": "STHX1",
     "Shell & Tube Heat Exchanger #2": "STHX2",
     "Shell & Tube Heat Exchanger #3": "STHX3",
+    "Air Flow Meters": "Airflow",
+    "Non-Newtonian Fluids #1": "NNF1",
+    "Non-Newtonian Fluids #2": "NNF2",
 }
 
 
@@ -75,6 +79,7 @@ class BaseAppFrame(ttk.Frame):
 
         # Build UI
         self._build_ui()
+        self._install_numeric_validation()
         self._set_initial_states()
         self._build_logger()
 
@@ -106,6 +111,8 @@ class BaseAppFrame(ttk.Frame):
                 Kc=pid_defaults.get("Kc", 1.0),
                 Ti=pid_defaults.get("Ti", 1.0),
                 Td=pid_defaults.get("Td", 0.0),
+                output_min=cfg.get("output_min", 0.0),
+                output_max=cfg.get("output_max", 5.0),
             )
             
             extra_keys = cfg.get("extra_sensor_keys")
@@ -173,7 +180,25 @@ class BaseAppFrame(ttk.Frame):
             count_var=self._data_point_count,
             unit_op=unit_op,
             experiment_id_var=self._experiment_id_var,
+            scheduler=self,
+            numeric_sources=sources.keys(),
+            on_error=self._on_logging_error,
         )
+
+    def _install_numeric_validation(self):
+        def visit(parent):
+            for widget in parent.winfo_children():
+                if isinstance(widget, ttk.Spinbox):
+                    install_numeric_validation(widget)
+                visit(widget)
+        visit(self)
+
+    def _on_logging_error(self, error):
+        self._logging_text_var.set("Start Logging")
+        self._toggle_logging_btn.state(["!selected"])
+        if hasattr(self, "_experiment_id_entry"):
+            self._experiment_id_entry.config(state="normal")
+        messagebox.showerror("Data Logging Error", error, parent=self.winfo_toplevel())
 
     # ══════════════════════════════════════════════════════════════════
     # GUI construction
@@ -461,7 +486,9 @@ class BaseAppFrame(ttk.Frame):
     # ══════════════════════════════════════════════════════════════════
 
     def _set_initial_states(self):
-        self._power_switch.configure(state="disabled")
+        """Disable everything until LabJack is connected."""
+        if getattr(self, "_power_switch", None) is not None:
+            self._power_switch.configure(state="disabled")
         self._toggle_logging_btn.configure(state="disabled")
         
         for w in self._switch_widgets:
@@ -494,8 +521,8 @@ class BaseAppFrame(ttk.Frame):
         for w in self._manual_analog_widgets:
             w.configure(state="normal")
             
-        for kw in self._loop_widgets.values():
-            enable_loop_widgets(kw)
+        for key, kw in self._loop_widgets.items():
+            enable_loop_widgets(kw, self.loops[key])
 
     def _disable_powered_controls(self):
         self._toggle_logging_btn.configure(state="disabled")
@@ -512,7 +539,8 @@ class BaseAppFrame(ttk.Frame):
         if self.logger.is_logging:
             self.logger.stop()
             self._logging_text_var.set("Start Logging")
-            self._experiment_id_entry.config(state="normal")
+            if hasattr(self, "_experiment_id_entry"):
+                self._experiment_id_entry.config(state="normal")
             self._data_point_count.set(0)
 
         for key, var in self._switch_vars.items():
@@ -568,7 +596,13 @@ class BaseAppFrame(ttk.Frame):
 
             self._connection_status.config(text="Connected", style="Green.TLabel")
             self._status_lbl.config(text="CONNECTED", foreground="green")
-            self._power_switch.configure(state="normal")
+            if getattr(self.config, "CONNECT_ENABLES_CONTROLS", False):
+                self.daq.safety.transition_to(SafetyState.ENABLED)
+                self._main_power_on = True
+                self._main_power_var.set(True)
+                self._enable_powered_controls()
+            else:
+                self._power_switch.configure(state="normal")
             
         except Exception as exc:
             self._connection_status.config(text=f"Failed: {exc}", style="Red.TLabel")
@@ -586,14 +620,16 @@ class BaseAppFrame(ttk.Frame):
 
         self._main_power_on = False
         self._main_power_var.set(False)
-        self._power_switch.config(text="Main Power: OFF")
+        if getattr(self, "_power_switch", None) is not None:
+            self._power_switch.config(text="Main Power: OFF")
         self._disable_powered_controls()
         
         self.daq.disconnect()
         
         self._connection_status.config(text="Disconnected", style="Green.TLabel")
         self._status_lbl.config(text="DISCONNECTED", foreground="red")
-        self._power_switch.configure(state="disabled")
+        if getattr(self, "_power_switch", None) is not None:
+            self._power_switch.configure(state="disabled")
 
     def _on_power_toggle(self):
         self._main_power_on = not self._main_power_on
@@ -637,14 +673,20 @@ class BaseAppFrame(ttk.Frame):
 
     def _on_toggle_logging(self):
         if not self.logger.is_logging:
-            self.logger.set_interval(self._log_interval_var.get())
-            self.logger.start()
+            try:
+                self.logger.set_interval(self._log_interval_var.get())
+                self.logger.start()
+            except Exception as exc:
+                self._on_logging_error(str(exc))
+                return
             self._logging_text_var.set("Stop Logging")
-            self._experiment_id_entry.config(state="disabled")
+            if hasattr(self, "_experiment_id_entry"):
+                self._experiment_id_entry.config(state="disabled")
         else:
             self.logger.stop()
             self._logging_text_var.set("Start Logging")
-            self._experiment_id_entry.config(state="normal")
+            if hasattr(self, "_experiment_id_entry"):
+                self._experiment_id_entry.config(state="normal")
             self._data_point_count.set(0)
 
     def _on_mousewheel(self, event):
@@ -733,7 +775,7 @@ class BaseAppFrame(ttk.Frame):
                 continue
             
             try:
-                setpoint_val = float(var.get())
+                setpoint_val = finite_number(var.get())
                 scale = cfg.get("scale", 1.0)
                 voltage = setpoint_val / scale
                 if self._main_power_on:
@@ -753,3 +795,9 @@ class BaseAppFrame(ttk.Frame):
         
         if self.on_back:
             self.on_back()
+
+    def destroy(self):
+        self._polling = False
+        if hasattr(self, "logger"):
+            self.logger.stop()
+        super().destroy()

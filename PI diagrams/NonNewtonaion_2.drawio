@@ -1,0 +1,88 @@
+<mxfile host="Electron">
+  <diagram name="Page-1" id="TMt5sntTHYpDur3rzeoQ">
+    <mxGraphModel dx="45" dy="42" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="100000" pageHeight="100000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="jwGFmRFklak8kSgM59Em-1" parent="1" style="shape=mxgraph.pid.vessels.tank_(covered);html=1;pointerEvents=1;align=center;verticalLabelPosition=bottom;verticalAlign=top;dashed=0;" value="" vertex="1">
+          <mxGeometry height="170" width="130" x="150" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-5" parent="1" style="shape=mxgraph.pid.vessels.mixer;html=1;pointerEvents=1;align=center;verticalLabelPosition=bottom;verticalAlign=top;dashed=0;rotation=-105;direction=south;" value="" vertex="1">
+          <mxGeometry height="30" width="170" x="92.59" y="219.66" as="geometry" />
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-6" parent="1" style="shape=mxgraph.pid.vessels.mixer;html=1;pointerEvents=1;align=center;verticalLabelPosition=bottom;verticalAlign=top;dashed=0;rotation=-75;direction=south;" value="" vertex="1">
+          <mxGeometry height="30" width="170" x="169.9985062280503" y="219.65598091110866" as="geometry" />
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-7" parent="1" style="shape=mxgraph.pid.pumps.centrifugal_pump_1;html=1;pointerEvents=1;align=center;verticalLabelPosition=bottom;verticalAlign=top;dashed=0;" value="" vertex="1">
+          <mxGeometry height="40" width="40" x="340" y="266" as="geometry" />
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-9" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="273.62" y="283.28" as="sourcePoint" />
+            <mxPoint x="343" y="283" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-10" edge="1" parent="1" style="endArrow=none;html=1;rounded=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="380" y="272" as="sourcePoint" />
+            <mxPoint x="720" y="270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-11" edge="1" parent="1" style="endArrow=none;html=1;rounded=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="720" y="340" as="sourcePoint" />
+            <mxPoint x="720" y="270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-12" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;entryX=0.95;entryY=0.839;entryDx=0;entryDy=0;entryPerimeter=0;" target="jwGFmRFklak8kSgM59Em-1" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="720" y="340" as="sourcePoint" />
+            <mxPoint x="320" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-14" parent="1" style="shape=mxgraph.pid.flow_sensors.magnetic;dashed=0;align=center;html=1;fontSize=25;" value="M" vertex="1">
+          <mxGeometry height="30" width="30" x="422" y="327" as="geometry" />
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-15" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;rounded=0;startArrow=oval;startFill=1;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="569" y="270.66" as="sourcePoint" />
+            <mxPoint x="569" y="230.66" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-16" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;rounded=0;startArrow=oval;startFill=1;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="681" y="270.66" as="sourcePoint" />
+            <mxPoint x="681" y="230.66" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-18" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;rounded=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="570" y="229.66" as="sourcePoint" />
+            <mxPoint x="681.94" y="229.37" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-19" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;rounded=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="624" y="229.66" as="sourcePoint" />
+            <mxPoint x="624" y="219.66" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-20" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;rounded=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="438" y="376.31" as="sourcePoint" />
+            <mxPoint x="438" y="356.66" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-22" parent="1" style="verticalLabelPosition=bottom;align=center;html=1;verticalAlign=top;pointerEvents=1;dashed=0;shape=mxgraph.pid2valves.valve;valveType=gate;actuator=diaph" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="434" y="238" as="geometry" />
+        </mxCell>
+        <mxCell id="jwGFmRFklak8kSgM59Em-28" edge="1" parent="1" style="endArrow=oval;dashed=1;html=1;rounded=0;endFill=1;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="351" y="375.41" as="sourcePoint" />
+            <mxPoint x="351" y="342" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

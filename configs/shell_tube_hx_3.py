@@ -156,7 +156,7 @@ CONTROL_LOOP_CONFIGS = {
         "setpoint_min":     0.0,
         "setpoint_max":     1.96,
         "default_setpoint": 0.0,
-        "pid_defaults":     {"Kc": -75.0, "Ti": 5.0, "Td": 0.0},
+        "pid_defaults":     {"Kc": -23.0, "Ti": 2.4, "Td": 0.0},
         "extra_sensor_key": None,
     },
     "flowrate": {
@@ -168,7 +168,7 @@ CONTROL_LOOP_CONFIGS = {
         "setpoint_min":     0.0,
         "setpoint_max":     79.00,
         "default_setpoint": 0.0,
-        "pid_defaults":     {"Kc": 0.2254, "Ti": 0.1321, "Td": 0.0},
+        "pid_defaults":     {"Kc": 0.12, "Ti": 0.045, "Td": 0.0},
         "extra_sensor_key": None,
     },
     "steam_pressure": {
@@ -180,7 +180,7 @@ CONTROL_LOOP_CONFIGS = {
         "setpoint_min":     0.0,
         "setpoint_max":     150.0,
         "default_setpoint": 0.0,
-        "pid_defaults":     {"Kc": 0.1501, "Ti": 0.1116, "Td": 0.0},
+        "pid_defaults":     {"Kc": 0.1, "Ti": 0.18, "Td": 0.0},
         "extra_sensor_key": None,
     },
 }

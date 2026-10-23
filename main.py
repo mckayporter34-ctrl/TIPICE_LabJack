@@ -3,7 +3,7 @@
 # Displays the Equipment Selection Dashboard and loads apparatus controllers.
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import os
 import importlib
 try:
@@ -182,10 +182,13 @@ class Dashboard(tk.Frame):
     Main Landing Screen displaying the grid of equipment cards.
     """
 
-    def __init__(self, parent, on_select_equipment, daq, **kw):
+    def __init__(self, parent, on_select_equipment, daq, development=False,
+                 on_toggle_section=None, **kw):
         super().__init__(parent, bg=C["bg"], **kw)
         self._on_select = on_select_equipment
         self.daq = daq
+        self._development = development
+        self._on_toggle_section = on_toggle_section
         self._build_ui()
 
     def _build_ui(self):
@@ -202,20 +205,37 @@ class Dashboard(tk.Frame):
 
         tk.Label(right_hdr, text="Select system to begin control",
                  bg=C["panel"], fg=C["muted"], font=("Segoe UI", 14)).pack(side="top", anchor="e")
-
-
+        self._section_button = ttk.Button(
+            right_hdr,
+            text="Back to Main Selector" if self._development else "Development",
+            command=self._on_toggle_section,
+        )
+        self._section_button.pack(side="top", anchor="e", pady=(6, 0))
 
         # ── Section title ──
-        tk.Label(self, text="AVAILABLE SYSTEMS", bg=C["bg"], fg=C["muted"],
+        section_title = "DEVELOPMENT SYSTEMS" if self._development else "AVAILABLE SYSTEMS"
+        tk.Label(self, text=section_title, bg=C["bg"], fg=C["muted"],
                  font=("Segoe UI", 16, "bold")).pack(pady=(15, 2))
 
         # ── Grid container ──
-        grid_container = tk.Frame(self, bg=C["bg"])
-        grid_container.pack(fill="both", expand=True, padx=25, pady=5)
+        # Keep additional equipment accessible on the same laboratory screens.
+        grid_body = tk.Frame(self, bg=C["bg"])
+        grid_body.pack(fill="both", expand=True, padx=25, pady=5)
+        card_canvas = tk.Canvas(grid_body, bg=C["bg"], highlightthickness=0)
+        card_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(grid_body, orient="vertical", command=card_canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+        card_canvas.configure(yscrollcommand=scrollbar.set)
+        grid_container = tk.Frame(card_canvas, bg=C["bg"])
+        card_window = card_canvas.create_window(0, 0, window=grid_container, anchor="nw")
+        grid_container.bind("<Configure>", lambda _: card_canvas.configure(scrollregion=card_canvas.bbox("all")))
+        card_canvas.bind("<Configure>", lambda event: card_canvas.itemconfigure(card_window, width=event.width))
 
-        # Layout cards in a flexible 3-column grid (1 row)
+        # Only show equipment belonging to the current section.
         cols = 3
-        for idx, (slug, info) in enumerate(AVAILABLE_CONFIGS.items()):
+        configs = [info for info in AVAILABLE_CONFIGS.values()
+                   if bool(info.get("development", False)) == self._development]
+        for idx, info in enumerate(configs):
             row_idx, col_idx = divmod(idx, cols)
             
             # Setup click handler
@@ -289,19 +309,49 @@ class MainApplication(tk.Tk):
 
     def show_dashboard(self):
         """Switch view to landing page dashboard."""
+        self._development_unlocked = False
         self.title("BYU TIPICE Lab Control System")
         self.geometry("1150x650")  # Optimized height for a 3-column horizontal tiles layout
-        self._swap_frame(Dashboard(self._container, on_select_equipment=self.launch_apparatus, daq=self._daq))
+        self._swap_frame(Dashboard(
+            self._container, on_select_equipment=self.launch_apparatus, daq=self._daq,
+            on_toggle_section=self.show_development,
+        ))
+
+    def show_development(self):
+        """Unlock development equipment for this visit to the section."""
+        password = simpledialog.askstring(
+            "Development Access", "Enter the development password:", show="*", parent=self,
+        )
+        if password is None:
+            return
+        if password != "dietcoke":
+            messagebox.showerror("Access Denied", "Incorrect development password.", parent=self)
+            return
+        self._development_unlocked = True
+        self._show_development_dashboard()
+
+    def _show_development_dashboard(self):
+        if not self._development_unlocked:
+            return
+        self.title("Development - BYU TIPICE Lab Control System")
+        self.geometry("1150x650")
+        self._swap_frame(Dashboard(
+            self._container, on_select_equipment=self.launch_apparatus, daq=self._daq,
+            development=True, on_toggle_section=self.show_dashboard,
+        ))
 
     def launch_apparatus(self, module_name):
         """Switch view to selected control panel frame."""
         # Validate that the module_name is one of our registered system modules
-        valid_modules = []
+        selected_group = None
         for group in AVAILABLE_CONFIGS.values():
             for unit in group.get("units", []):
-                valid_modules.append(unit["module"])
+                if unit["module"] == module_name and group["active"]:
+                    selected_group = group
 
-        if module_name not in valid_modules:
+        if selected_group is None:
+            return
+        if selected_group.get("development") and not self._development_unlocked:
             return
 
         # Dynamically load the config module
@@ -334,7 +384,8 @@ class MainApplication(tk.Tk):
             self._container,
             config=config_module,
             daq=self._daq,
-            on_back=self.show_dashboard
+            on_back=(self._show_development_dashboard
+                     if selected_group.get("development") else self.show_dashboard)
         )
         self._swap_frame(panel_frame)
 

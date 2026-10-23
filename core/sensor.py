@@ -6,6 +6,7 @@
 import tkinter as tk
 from dataclasses import dataclass, field
 from typing import Callable
+from core.numeric_entry import finite_number
 
 
 @dataclass
@@ -52,7 +53,7 @@ class Sensor:
 
     def set_value(self, engineering_value: float, decimals: int = 2):
         """Format and push a new reading into value_var."""
-        self.value_var.set(f"{engineering_value:.{decimals}f}")
+        self.value_var.set(f"{finite_number(engineering_value):.{decimals}f}")
 
     def set_error(self):
         """Push an error marker into value_var (channel unread / disconnected)."""

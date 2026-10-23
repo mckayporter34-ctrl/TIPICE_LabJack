@@ -526,7 +526,7 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
                 
                 if loop.is_auto:
                     widgets["mode"].configure(text="AUTO")
-                    widgets["sp"].configure(state="normal")
+                    widgets["sp"].configure(state="disabled")
                     widgets["slider"].configure(state="disabled")
                     if "spinbox" in widgets:
                         widgets["spinbox"].configure(state="disabled")
@@ -536,7 +536,7 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
                         loop.pid.reset()
                 else:
                     widgets["mode"].configure(text="MANUAL")
-                    widgets["sp"].configure(state="disabled")
+                    widgets["sp"].configure(state="normal")
                     widgets["slider"].configure(state="normal")
                     if "spinbox" in widgets:
                         widgets["spinbox"].configure(state="normal")
@@ -645,16 +645,7 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
         self._update_pump_indicator()
 
     def _on_toggle_logging(self):
-        if not self.logger.is_logging:
-            self.logger.set_interval(self._log_interval_var.get())
-            self.logger.start()
-            self._logging_text_var.set("Stop Logging")
-            self._experiment_id_entry.config(state="disabled")
-        else:
-            self.logger.stop()
-            self._logging_text_var.set("Start Logging")
-            self._experiment_id_entry.config(state="normal")
-            self._data_point_count.set(0)
+        super()._on_toggle_logging()
 
     def _on_theme_toggle(self):
         self._theme_mode.set(1 - self._theme_mode.get())

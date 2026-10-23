@@ -559,13 +559,13 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
             w_widgets["pid_Td"].configure(state="normal")
             if w_loop.is_auto:
                 w_widgets["mode"].configure(text="AUTO")
-                w_widgets["sp"].configure(state="normal")
+                w_widgets["sp"].configure(state="disabled")
                 w_widgets["slider"].configure(state="disabled")
                 if "spinbox" in w_widgets:
                     w_widgets["spinbox"].configure(state="disabled")
             else:
                 w_widgets["mode"].configure(text="MANUAL")
-                w_widgets["sp"].configure(state="disabled")
+                w_widgets["sp"].configure(state="normal")
                 w_widgets["slider"].configure(state="normal")
                 if "spinbox" in w_widgets:
                     w_widgets["spinbox"].configure(state="normal")
@@ -585,13 +585,13 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
             l_widgets["pid_Td"].configure(state="normal")
             if l_loop.is_auto:
                 l_widgets["mode"].configure(text="AUTO")
-                l_widgets["sp"].configure(state="normal")
+                l_widgets["sp"].configure(state="disabled")
                 l_widgets["slider"].configure(state="disabled")
                 if "spinbox" in l_widgets:
                     l_widgets["spinbox"].configure(state="disabled")
             else:
                 l_widgets["mode"].configure(text="MANUAL")
-                l_widgets["sp"].configure(state="disabled")
+                l_widgets["sp"].configure(state="normal")
                 l_widgets["slider"].configure(state="normal")
                 if "spinbox" in l_widgets:
                     l_widgets["spinbox"].configure(state="normal")
@@ -716,16 +716,7 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         self._level_mode_auto_var.set(loop.is_auto)
 
     def _on_toggle_logging(self):
-        if not self.logger.is_logging:
-            self.logger.set_interval(self._log_interval_var.get())
-            self.logger.start()
-            self._logging_text_var.set("Stop Logging")
-            self._experiment_id_entry.config(state="disabled")
-        else:
-            self.logger.stop()
-            self._logging_text_var.set("Start Logging")
-            self._experiment_id_entry.config(state="normal")
-            self._data_point_count.set(0)
+        super()._on_toggle_logging()
 
     def _on_theme_toggle(self):
         self._theme_mode.set(1 - self._theme_mode.get())

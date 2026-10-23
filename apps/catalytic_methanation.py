@@ -7,8 +7,44 @@ from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 from core.base_app import BaseAppFrame
 from core.safety import SafetyState
+from core.numeric_entry import finite_number
+from core.pid_controller import PIDController
 
 CW, CH = 990, 762
+HE_CYLINDER_COLOR = "#FF9800"
+
+
+class _PressurePID(PIDController):
+    """Methanation-only, one-shot initialization from the held valve command."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.last_output = 0.0
+        self._resume_output = None
+
+    def reset(self):
+        super().reset()
+        self._resume_output = None
+
+    def initialize(self, current_output):
+        self.reset()
+        self.last_output = max(self.output_min, min(self.output_max, current_output))
+        self._resume_output = self.last_output
+
+    def compute(self, setpoint, measurement, dt):
+        if self._resume_output is not None and dt > 0:
+            # Use the first fresh Exhaust reading and current tuning. Hold the
+            # output for this sample, cancel P with I, and suppress derivative
+            # kick; ordinary integration starts on the following sample.
+            error = setpoint - measurement
+            self._integral = self._resume_output - self.Kc * error
+            self._e_prev = error
+            self.last_output = self._resume_output
+            self._resume_output = None
+            return self.last_output
+        self.last_output = super().compute(setpoint, measurement, dt)
+        return self.last_output
+
 
 class CatalyticMethanationRedesignFrame(BaseAppFrame):
     """
@@ -21,6 +57,8 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
     def __init__(self, parent, config, daq, on_back=None):
         # 1. Initialize custom variables before constructor builds UI
         self._gc_stream_var = tk.StringVar(value="Feed")
+        self._pressure_gate_var = tk.BooleanVar(value=False)
+        self._pressure_stream = None  # Set only after successful selector writes.
         self._heater_power_var = tk.BooleanVar(value=False)
         self._override_var = tk.BooleanVar(value=False)
         
@@ -42,6 +80,16 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         self._loop_toggle_funcs = {}
 
         super().__init__(parent, config, daq, on_back)
+
+    def _build_control_loops(self):
+        loops = super()._build_control_loops()
+        pressure = loops["pressure"]
+        pid = pressure.pid
+        pressure.pid = _PressurePID(Kc=pid.Kc, Ti=pid.Ti, Td=pid.Td,
+                                    output_min=pid.output_min, output_max=pid.output_max)
+        pressure.gate_switch = "pressure_enabled"
+        pressure.gate_value = True
+        return loops
 
     def _build_ui(self):
         # Configure layout weights
@@ -310,11 +358,33 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             self._bg_img_resized = self._bg_img_raw.resize((CW, CH), Image.Resampling.LANCZOS)
             self._bg_img = ImageTk.PhotoImage(self._bg_img_resized)
             self._pid.create_image(0, 0, anchor="nw", image=self._bg_img)
+            self._draw_helium_cylinder()
         except Exception as e:
             print(f"Error loading P&ID background image: {e}")
             self._pid.create_text(CW//2, CH//2, text="P&ID Diagram Image Not Found", font=("Segoe UI", 16))
 
         self._create_sensor_overlays()
+
+    def _draw_helium_cylinder(self):
+        """Draw the orange He cylinder over the diagram in native canvas shapes.
+
+        Coordinates follow the original 738 x 568 diagram so only the cylinder
+        changes; the process lines and other symbols retain their positions.
+        """
+        sx, sy = CW / 738, CH / 568
+        outline = "#803000"
+        neck = [(28, 416), (28, 399), (29, 394), (32, 389), (37, 386),
+                (45, 386), (50, 389), (53, 394), (54, 399), (54, 416)]
+        body = [(10, 557), (10, 429), (11, 425), (15, 421), (21, 417),
+                (29, 415), (40, 413), (52, 415), (62, 418), (69, 423),
+                (73, 429), (73, 557)]
+        for points in (neck, body):
+            self._pid.create_polygon(
+                *[coordinate for x, y in points for coordinate in (x * sx, y * sy)],
+                fill=HE_CYLINDER_COLOR, outline=outline, width=2,
+                tags="helium_cylinder")
+        self._pid.create_text(40 * sx, 475 * sy, text="He", fill="black",
+                              font=("Helvetica", 21, "bold"), tags="helium_cylinder")
 
     def _create_sensor_overlays(self):
         s = self.sensors
@@ -441,7 +511,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             if loop.is_auto:
                 mode_btn.config(text="AUTO")
                 if self._main_power_on:
-                    sp.config(state="normal")
+                    sp.config(state="disabled")
                     slider.config(state="disabled")
                     spinbox.config(state="disabled")
                     try:
@@ -451,7 +521,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
             else:
                 mode_btn.config(text="MANUAL")
                 if self._main_power_on:
-                    sp.config(state="disabled")
+                    sp.config(state="normal")
                     slider.config(state="normal")
                     spinbox.config(state="normal")
                     loop.pid.reset()
@@ -482,6 +552,7 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
     # ── State control overrides ────────────────────────────────────────────────
 
     def _set_initial_states(self):
+        self._switch_vars["pressure_enabled"] = self._pressure_gate_var
         super()._set_initial_states()
         self._set_gc_widgets_state("disabled")
         self._heater_switch.configure(state="disabled")
@@ -511,6 +582,10 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
 
     def _disable_powered_controls(self):
         self._gc_stream_var.set("Feed")
+        self._pressure_stream = None
+        self._pressure_gate_var.set(False)
+        self.loops["pressure"].pid.reset()
+        self.loops["pressure"].pid.last_output = 0.0
         self._heater_power_var.set(False)
 
         for var in self._gas_ui_vars.values():
@@ -551,13 +626,37 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
         if not self._main_power_on:
             return
         stream = self._gc_stream_var.get()
+        if stream != "Exhaust":
+            self._pressure_stream = None
+            self._sync_pressure_control()
         val = 5.0 if stream == "Feed" else 0.0
         pins = getattr(self.config, "GC_SELECT_PINS", ["FIO5", "FIO6"])
         try:
             for pin in pins:
                 self.daq.write(pin, val)
         except Exception as e:
+            self._pressure_stream = None
+            self._sync_pressure_control()
             print(f"[GC Select] Error writing: {e}")
+            return
+        self._pressure_stream = stream
+        self._sync_pressure_control()
+
+    def _sync_pressure_control(self):
+        loop = self.loops["pressure"]
+        enabled = (self._main_power_on and self.daq.is_connected
+                   and (not loop.is_auto or self._pressure_stream == "Exhaust"))
+        if not enabled:
+            loop.pid.reset()  # Discard stale I/D state; leave the valve command held.
+        elif loop.is_auto and not self._pressure_gate_var.get():
+            loop.pid.initialize(loop.pid.last_output)
+        self._pressure_gate_var.set(enabled)
+
+    def _update_all_loops(self):
+        if not self._polling:
+            return
+        self._sync_pressure_control()
+        super()._update_all_loops()
 
     def _on_heater_toggle(self):
         state = self._heater_power_var.get()
@@ -599,9 +698,9 @@ class CatalyticMethanationRedesignFrame(BaseAppFrame):
 
     def _apply_gas_changes(self):
         try:
-            h2 = float(self._gas_ui_vars["hydrogen_setpoint"].get())
-            co2 = float(self._gas_ui_vars["co2_setpoint"].get())
-            he = float(self._gas_ui_vars["helium_setpoint"].get())
+            h2 = finite_number(self._gas_ui_vars["hydrogen_setpoint"].get())
+            co2 = finite_number(self._gas_ui_vars["co2_setpoint"].get())
+            he = finite_number(self._gas_ui_vars["helium_setpoint"].get())
         except ValueError:
             messagebox.showerror("Validation Error", "All gas setpoints must be valid numbers.")
             return

@@ -3,3 +3,4 @@ labjack-ljm
 LabJackPython
 numpy
 influxdb-client
+Flask

@@ -35,3 +35,5 @@ Thumbs.db
 Archive/
 Development/
 *_LoggedData/
+.historian.local.json
+*.recording.jsonl.gz
