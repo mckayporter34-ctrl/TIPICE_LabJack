@@ -2,3 +2,4 @@ Pillow
 labjack-ljm
 LabJackPython
 numpy
+influxdb-client
