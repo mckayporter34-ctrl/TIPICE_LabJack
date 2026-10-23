@@ -167,9 +167,18 @@ class BaseAppFrame(ttk.Frame):
         for key, sensor in self.sensors.items():
             if sensor.is_configured():
                 influx_sources[key] = sensor.value_var.get
+                
         for key, loop in self.loops.items():
+            # Include measured var if it isn't already logged by a raw sensor
             if loop.input_pin not in [s.pin for s in self.sensors.values()]:
-                influx_sources[key] = loop.measured_var.get
+                influx_sources[f"{key}_measured"] = loop.measured_var.get
+                
+            # Add controller tuning, setpoint, and valve position outputs
+            influx_sources[f"{key}_setpoint"] = loop.setpoint_var.get
+            influx_sources[f"{key}_valve"] = loop.valve_position.get
+            influx_sources[f"{key}_Kc"] = loop.Kc_var.get
+            influx_sources[f"{key}_Ti"] = loop.Ti_var.get
+            influx_sources[f"{key}_Td"] = loop.Td_var.get
 
         unit_op = UNIT_OP_MAP.get(self.config.SYSTEM_NAME, "DefaultUnit")
 
