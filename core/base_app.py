@@ -5,6 +5,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os
+import requests
+
 try:
     from PIL import Image, ImageTk
     PIL_AVAILABLE = True
@@ -65,6 +67,10 @@ class BaseAppFrame(ttk.Frame):
         self._log_interval_var = tk.DoubleVar(value=1.0)
         self._data_point_count = tk.IntVar(value=0)
         self._experiment_id_var = tk.StringVar(value="YYMMDD_GroupName")
+        self.student_id_var = tk.StringVar(value="")
+        
+        # Determine Unit Op name for the API & InfluxDB
+        self._unit_op = UNIT_OP_MAP.get(self.config.SYSTEM_NAME, "DefaultUnit")
         
         # Trace changes to Experiment ID to update logging button state dynamically
         self._experiment_id_var.trace_add("write", self._validate_experiment_id)
@@ -86,6 +92,42 @@ class BaseAppFrame(ttk.Frame):
         # Start periodic updates
         self._polling = True
         self._schedule_updates()
+
+    # ══════════════════════════════════════════════════════════════════
+    # Historian Checkout API Methods
+    # ══════════════════════════════════════════════════════════════════
+
+    def _attempt_checkout(self):
+        student_id = self.student_id_var.get().strip()
+        if not student_id:
+            messagebox.showwarning("Missing ID", "Please enter your Student ID before connecting.")
+            return False
+            
+        try:
+            response = requests.post(
+                "http://10.5.112.172:5000/checkout",
+                json={"student_id": student_id, "unit_op": self._unit_op},
+                timeout=3
+            )
+            if response.status_code == 200:
+                return True
+            else:
+                error_msg = response.json().get("message", "Checkout rejected")
+                messagebox.showerror("Checkout Failed", error_msg)
+                return False
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Network Error", f"Could not reach historian API:\n{e}")
+            return False
+
+    def _release_checkout(self):
+        try:
+            requests.post(
+                "http://10.5.112.172:5000/release",
+                json={"unit_op": self._unit_op},
+                timeout=2
+            )
+        except requests.exceptions.RequestException:
+            pass  # Fail silently on disconnect so the app can still close
 
     # ══════════════════════════════════════════════════════════════════
     # Initialisation helpers
@@ -180,14 +222,12 @@ class BaseAppFrame(ttk.Frame):
             influx_sources[f"{key}_Ti"] = loop.Ti_var.get
             influx_sources[f"{key}_Td"] = loop.Td_var.get
 
-        unit_op = UNIT_OP_MAP.get(self.config.SYSTEM_NAME, "DefaultUnit")
-
         self.logger = DataLogger(
             sources=sources,
             influx_sources=influx_sources,
             folder=getattr(self.config, "LOG_FOLDER", "LoggedData"),
             count_var=self._data_point_count,
-            unit_op=unit_op,
+            unit_op=self._unit_op,
             experiment_id_var=self._experiment_id_var,
             scheduler=self,
             numeric_sources=sources.keys(),
@@ -313,23 +353,29 @@ class BaseAppFrame(ttk.Frame):
         f = ttk.LabelFrame(parent, text="Controls", padding=(20, 10))
         f.grid(row=row, column=col, padx=(20, 10), pady=(10, 10), sticky="nsew")
 
+        # Student ID Entry Box
+        id_frame = ttk.Frame(f)
+        id_frame.grid(row=0, column=0, padx=5, pady=(5, 5), sticky="nsew")
+        ttk.Label(id_frame, text="Student ID:").pack(side="left", padx=(0, 5))
+        ttk.Entry(id_frame, textvariable=self.student_id_var, width=12).pack(side="left")
+
         self._connect_dropdown = ttk.OptionMenu(
             f, self._connection_var,
             "Connect to LabJack",
             "USB", "Ethernet", "Disconnect",
             command=self._on_connection_choice,
         )
-        self._connect_dropdown.grid(row=0, column=0, padx=5, pady=(10, 5), sticky="nsew")
+        self._connect_dropdown.grid(row=1, column=0, padx=5, pady=(5, 5), sticky="nsew")
 
         self._connection_status = ttk.Label(f, text="Not connected", padding=(5, 5))
-        self._connection_status.grid(row=1, column=0, padx=5, pady=0, sticky="nsew")
+        self._connection_status.grid(row=2, column=0, padx=5, pady=0, sticky="nsew")
 
         self._power_switch = ttk.Checkbutton(
             f, text="Main Power: OFF", style="Switch",
             variable=self._main_power_var,
             command=self._on_power_toggle,
         )
-        self._power_switch.grid(row=2, column=0, padx=5, pady=10, sticky="nsew")
+        self._power_switch.grid(row=3, column=0, padx=5, pady=10, sticky="nsew")
 
         switches = getattr(self.config, "SYSTEM_SWITCHES", [])
         for idx, sw in enumerate(switches):
@@ -346,7 +392,7 @@ class BaseAppFrame(ttk.Frame):
                     variable=var,
                     command=lambda k=key, s=sw: self._on_toggle_switch(k, s)
                 )
-                chk.grid(row=3 + idx, column=0, padx=5, pady=10, sticky="nsew")
+                chk.grid(row=4 + idx, column=0, padx=5, pady=10, sticky="nsew")
                 self._switch_widgets.append((chk, label))
 
             elif sw_type == "radio":
@@ -354,7 +400,7 @@ class BaseAppFrame(ttk.Frame):
                 self._switch_vars[key] = var
 
                 rf = ttk.Frame(f)
-                rf.grid(row=3 + idx, column=0, padx=5, pady=10, sticky="nsew")
+                rf.grid(row=4 + idx, column=0, padx=5, pady=10, sticky="nsew")
                 
                 ttk.Label(rf, text=label, font=("Helvetica", 9, "bold")).grid(
                     row=0, column=0, columnspan=2, padx=5, pady=(5, 5), sticky="w"
@@ -587,6 +633,13 @@ class BaseAppFrame(ttk.Frame):
     # ══════════════════════════════════════════════════════════════════
 
     def _on_connection_choice(self, choice):
+        # 1. Ask the historian for permission first before any hardware connection
+        if choice in ["USB", "Ethernet"]:
+            if not self._attempt_checkout():
+                # Reset UI dropdown to Disconnected if rejected
+                self._connection_var.set("Connect to LabJack")
+                return 
+
         if choice == "USB":
             self._connect("T7", "USB", "ANY")
         elif choice == "Ethernet":
@@ -639,6 +692,8 @@ class BaseAppFrame(ttk.Frame):
         self._status_lbl.config(text="DISCONNECTED", foreground="red")
         if getattr(self, "_power_switch", None) is not None:
             self._power_switch.configure(state="disabled")
+            
+        self._release_checkout()
 
     def _on_power_toggle(self):
         self._main_power_on = not self._main_power_on

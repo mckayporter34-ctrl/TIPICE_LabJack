@@ -4,3 +4,4 @@ LabJackPython
 numpy
 influxdb-client
 Flask
+requests

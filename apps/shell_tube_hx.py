@@ -194,6 +194,12 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
         ctrl = ttk.LabelFrame(col, text="Controls", padding=(30, 15))
         ctrl.pack(fill="x", pady=(0, 8))
 
+        # Student ID Entry Box
+        id_frame = ttk.Frame(ctrl)
+        id_frame.pack(fill="x", pady=(4, 2))
+        ttk.Label(id_frame, text="Student ID:").pack(side="left")
+        ttk.Entry(id_frame, textvariable=self.student_id_var, width=12).pack(side="left", padx=5)
+
         self._connect_dd = ttk.OptionMenu(
             ctrl, self._connection_var, "Connect to LabJack",
             "USB", "Ethernet", "Disconnect",
@@ -584,6 +590,12 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
         self._anim_test_sw.config(text=f"Flow Animation: {'ON' if state else 'OFF'}")
 
     def _on_connection_choice(self, choice):
+        # 1. Ask the historian for permission first
+        if choice in ["USB", "Ethernet"]:
+            if not self._attempt_checkout():
+                self._connection_var.set("Connect to LabJack")
+                return
+
         if choice == "USB":       self._connect("T7", "USB",      "ANY")
         elif choice == "Ethernet": self._connect("T7", "ETHERNET", self.config.ETHERNET_ADDRESS)
         elif choice == "Disconnect": self._disconnect()
@@ -618,6 +630,9 @@ class ShellTubeHXRedesignFrame(BaseAppFrame):
         self._connection_status.config(text="Disconnected", style="Green.TLabel")
         self._status_lbl.config(text="DISCONNECTED", foreground="red")
         self._power_sw.configure(state="disabled")
+        
+        # 2. Release the lock for the next user
+        self._release_checkout()
 
     def _on_power_toggle(self):
         self._main_power_on = not self._main_power_on
