@@ -178,7 +178,7 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         r_exp = ttk.Frame(log)
         r_exp.pack(fill="x", pady=2)
         ttk.Label(r_exp, text="Experiment ID:").pack(side="left")
-        self._experiment_id_entry = ttk.Entry(r_exp, textvariable=self._experiment_id_var, width=12)
+        self._experiment_id_entry = ttk.Entry(r_exp, textvariable=self._experiment_id_var, width=18)
         self._experiment_id_entry.pack(side="right")
 
         r = ttk.Frame(log)
@@ -542,7 +542,7 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
             return
         
         exp_id = self._experiment_id_var.get().strip()
-        if exp_id and exp_id != "YYMMDD_GroupName":
+        if exp_id and exp_id != "Group1_Run1":
             self._log_btn.configure(state="normal")
         else:
             if not self.logger.is_logging:

@@ -66,7 +66,7 @@ class BaseAppFrame(ttk.Frame):
         self._logging_text_var = tk.StringVar(value="Start Logging")
         self._log_interval_var = tk.DoubleVar(value=1.0)
         self._data_point_count = tk.IntVar(value=0)
-        self._experiment_id_var = tk.StringVar(value="YYMMDD_GroupName")
+        self._experiment_id_var = tk.StringVar(value="Group1_Run1")
         self.student_id_var = tk.StringVar(value="")
         
         # Determine Unit Op name for the API & InfluxDB
@@ -97,7 +97,7 @@ class BaseAppFrame(ttk.Frame):
     # Historian Checkout API Methods
     # ══════════════════════════════════════════════════════════════════
 
-    def _attempt_checkout(self):
+    def _attempt_checkout(self, force=False):
         student_id = self.student_id_var.get().strip()
         if not student_id:
             messagebox.showwarning("Missing ID", "Please enter your Student ID before connecting.")
@@ -106,15 +106,27 @@ class BaseAppFrame(ttk.Frame):
         try:
             response = requests.post(
                 "http://10.5.112.172:5000/checkout",
-                json={"student_id": student_id, "unit_op": self._unit_op},
+                json={"student_id": student_id, "unit_op": self._unit_op, "force": force},
                 timeout=3
             )
+            
             if response.status_code == 200:
                 return True
+            elif response.status_code == 409 and not force:
+                # Machine is in use; ask to force override
+                current_user = response.json().get("current_user", "another user")
+                ans = messagebox.askyesno(
+                    "Machine in Use", 
+                    f"This machine is currently locked by {current_user}.\n\nDo you want to forcefully disconnect their session and take control?"
+                )
+                if ans:
+                    return self._attempt_checkout(force=True)
+                return False
             else:
                 error_msg = response.json().get("message", "Checkout rejected")
                 messagebox.showerror("Checkout Failed", error_msg)
                 return False
+                
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Network Error", f"Could not reach historian API:\n{e}")
             return False
@@ -128,6 +140,34 @@ class BaseAppFrame(ttk.Frame):
             )
         except requests.exceptions.RequestException:
             pass  # Fail silently on disconnect so the app can still close
+
+    def _check_session_status(self):
+        """Background kill-switch: checks if another user forcefully took the lock."""
+        if not self._polling or not self.daq.is_connected:
+            self.after(3000, self._check_session_status)
+            return
+
+        try:
+            response = requests.post(
+                "http://10.5.112.172:5000/status",
+                json={"unit_op": self._unit_op},
+                timeout=2
+            )
+            if response.status_code == 200:
+                current_user = response.json().get("current_user")
+                my_id = self.student_id_var.get().strip()
+                
+                # If someone else holds the lock while we are connected, kill the connection
+                if current_user and current_user != my_id:
+                    self._disconnect()
+                    messagebox.showwarning(
+                        "Session Terminated",
+                        f"Your connection was forcefully terminated by {current_user}."
+                    )
+        except requests.exceptions.RequestException:
+            pass  # Fail silently on temporary network drops
+            
+        self.after(3000, self._check_session_status)
 
     # ══════════════════════════════════════════════════════════════════
     # Initialisation helpers
@@ -461,9 +501,9 @@ class BaseAppFrame(ttk.Frame):
         )
         self._toggle_logging_btn.grid(row=0, rowspan=6, column=0, padx=20, pady=(10, 5), sticky="nsew")
         
-        # Experiment ID Entry
+        # Experiment ID Entry (Width increased to 18)
         ttk.Label(f, text="Experiment ID:").grid(row=0, column=1, padx=5, pady=(5, 0), sticky="w")
-        self._experiment_id_entry = ttk.Entry(f, textvariable=self._experiment_id_var, width=15)
+        self._experiment_id_entry = ttk.Entry(f, textvariable=self._experiment_id_var, width=18)
         self._experiment_id_entry.grid(row=1, column=1, padx=5, pady=(0, 5), sticky="ew")
 
         ttk.Label(f, text="Interval (s)").grid(row=2, column=1, padx=5, pady=(5, 0), sticky="w")
@@ -561,7 +601,7 @@ class BaseAppFrame(ttk.Frame):
             return
         
         exp_id = self._experiment_id_var.get().strip()
-        if exp_id and exp_id != "YYMMDD_GroupName":
+        if exp_id and exp_id != "Group1_Run1":
             self._toggle_logging_btn.configure(state="normal")
         else:
             if not self.logger.is_logging:
@@ -768,6 +808,9 @@ class BaseAppFrame(ttk.Frame):
         self.after(UPDATE_INTERVAL_MS, self._update_all_sensors)
         self.after(UPDATE_INTERVAL_MS, self._update_all_loops)
         self.after(UPDATE_INTERVAL_MS, self._update_manual_analog_outputs)
+        
+        # Start the background kill-switch polling
+        self.after(3000, self._check_session_status)
 
     def _update_all_sensors(self):
         if not self._polling:
