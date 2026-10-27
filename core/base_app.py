@@ -135,27 +135,28 @@ class BaseAppFrame(ttk.Frame):
         try:
             requests.post(
                 "http://10.5.112.172:5000/release",
-                json={"unit_op": self._unit_op},
+                json={"unit_op": self._unit_op, "student_id": self.student_id_var.get().strip()},
                 timeout=2
             )
         except requests.exceptions.RequestException:
             pass  # Fail silently on disconnect so the app can still close
 
     def _check_session_status(self):
-        """Background kill-switch: checks if another user forcefully took the lock."""
+        """Background kill-switch and session heartbeat ping."""
         if not self._polling or not self.daq.is_connected:
             self.after(3000, self._check_session_status)
             return
 
+        my_id = self.student_id_var.get().strip()
+
         try:
             response = requests.post(
                 "http://10.5.112.172:5000/status",
-                json={"unit_op": self._unit_op},
+                json={"unit_op": self._unit_op, "student_id": my_id},
                 timeout=2
             )
             if response.status_code == 200:
                 current_user = response.json().get("current_user")
-                my_id = self.student_id_var.get().strip()
                 
                 # If someone else holds the lock while we are connected, kill the connection
                 if current_user and current_user != my_id:
