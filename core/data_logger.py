@@ -69,7 +69,9 @@ class DataLogger:
 
         # Read the Tk variable once on the UI thread, before any workers start.
         run_id = self._run_id_var.get().strip() if self._run_id_var is not None else ""
-        self._active_run_id = run_id or "Unnamed_Run"
+        base_name = run_id if run_id else "Unnamed_Run"
+        timestamp_suffix = datetime.now().strftime("%H%M%S")
+        self._active_run_id = f"{base_name}_{timestamp_suffix}"
 
         # Open before starting so permission/disk errors reach the GUI immediately.
         self.filepath = self._make_filepath()
