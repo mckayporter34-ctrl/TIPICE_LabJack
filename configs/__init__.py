@@ -32,19 +32,19 @@ AVAILABLE_CONFIGS = {
         "active": True,
         "accent": "#2f81f7",  # blue
         "units": [
-            {"name": "Unit #1", "module": "configs.packed_columns"}
+            {"name": " ", "module": "configs.packed_columns"}
         ]
     },
     "nonnewtonian": {
         "development": True,
         "title": "Non-Newtonian Fluids",
         "subtitle": "Flow Measurement and Control",
-        "image": "PI diagrams/NonNewtonaion_1_V1.png",
+        "image": "images/Non_Newtonian_Apparatus.png",
         "active": True,
         "accent": "#2f81f7",
         "units": [
-            {"name": "Unit #1", "module": "configs.nonnewtonian_1"},
-            {"name": "Unit #2", "module": "configs.nonnewtonian_2"}
+            {"name": "Unit #1 (Small Pipe)", "module": "configs.nonnewtonian_1"},
+            {"name": "Unit #2 (Large Pipe)", "module": "configs.nonnewtonian_2"}
         ]
     },
     "airflow": {
@@ -55,7 +55,7 @@ AVAILABLE_CONFIGS = {
         "active": True,
         "accent": "#2f81f7",
         "units": [
-            {"name": "CB217A · Peter", "module": "configs.airflow"}
+            {"name": " ", "module": "configs.airflow"}
         ]
     }
 }

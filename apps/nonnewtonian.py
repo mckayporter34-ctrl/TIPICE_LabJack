@@ -8,7 +8,6 @@ from PIL import Image, ImageTk
 from core.base_app import BaseAppFrame, DT_MINUTES, UPDATE_INTERVAL_MS
 from core.numeric_entry import finite_number
 from core.safety import SafetyState
-from core.ui_builders import disable_loop_widgets
 
 
 class NonNewtonianFrame(BaseAppFrame):
@@ -19,7 +18,7 @@ class NonNewtonianFrame(BaseAppFrame):
         self._theme_dark = False
         self._auto_var = tk.BooleanVar(value=False)
         self._output_label = getattr(self.config, "OUTPUT_LABEL", "Pump Speed")
-        self._control_message = tk.StringVar(value="Pump is off")
+        self._control_message = tk.StringVar(value="")
         self._build_header_bar()
 
         body = ttk.Frame(self)
@@ -55,6 +54,7 @@ class NonNewtonianFrame(BaseAppFrame):
             command=lambda: self._on_toggle_switch("pump", switch))
         self._pump_switch.pack(fill="x", pady=4)
         self._switch_widgets.append((self._pump_switch, "Pump"))
+        ttk.Label(controls, textvariable=self._control_message, wraplength=240).pack(fill="x", pady=(4, 0))
 
         log = ttk.LabelFrame(sidebar, text="Data Logging", padding=12)
         log.pack(fill="x", pady=(0, 10))
@@ -92,6 +92,7 @@ class NonNewtonianFrame(BaseAppFrame):
             self._diagram_image = source.convert("RGB")
         self._diagram_item = self._pid.create_image(0, 0, anchor="nw")
         self._overlays = []
+        self._readout_widgets = {}
         loop = self.loops["flowrate"]
         for key, label, x, y, anchor in self.config.DIAGRAM_READOUTS:
             if key == "flowrate":
@@ -101,6 +102,14 @@ class NonNewtonianFrame(BaseAppFrame):
             else:
                 variable = self.sensors[key].value_var
             self._add_readout(label, variable, x, y, anchor, key)
+        self._pump_status_label = tk.Label(
+            self._pid, font=("Helvetica", 11, "bold"), fg="white", padx=8, pady=3,
+        )
+        self._pump_status_item = self._pid.create_window(
+            0, 0, window=self._pump_status_label, anchor="s")
+        self._overlays.append((*self.config.PUMP_STATUS_POSITION, self._pump_status_item))
+        self._switch_vars["pump"].trace_add("write", self._update_pump_indicator)
+        self._update_pump_indicator()
         self._pid.bind("<Configure>", self._resize_diagram)
         self._build_flow_panel(self._sf)
 
@@ -115,8 +124,16 @@ class NonNewtonianFrame(BaseAppFrame):
         entry.pack(pady=(3, 0))
         item = self._pid.create_window(0, 0, window=card, anchor=anchor)
         self._overlays.append((x, y, item))
+        self._readout_widgets[key] = {"entry": entry, "frame": card, "item": item}
         if key in self.sensors:
             self._sensor_widgets[key] = {"entry": entry}
+
+    def _update_pump_indicator(self, *_):
+        pump_on = self._switch_vars["pump"].get()
+        self._pump_status_label.configure(
+            text="Pump: ON" if pump_on else "Pump: OFF",
+            bg="#2e7d32" if pump_on else "#b71c1c",
+        )
 
     def _resize_diagram(self, event):
         w, h = self._diagram_image.size
@@ -163,10 +180,6 @@ class NonNewtonianFrame(BaseAppFrame):
         loop.valve_position.trace_add("write", self._sync_manual_slider)
         for event in ("<Return>", "<FocusOut>", "<<Increment>>", "<<Decrement>>"):
             widgets["manual_spinbox"].bind(event, self._commit_manual)
-        low, high = loop.pid.output_min, loop.pid.output_max
-        ttk.Label(manual, text=f"0% = {low:g} V     50% = {(low + high) / 2:g} V     100% = {high:g} V").grid(
-            row=3, column=0, columnspan=2, sticky="w")
-
         tuning = ttk.Frame(panel)
         tuning.grid(row=0, column=2, sticky="nsew")
         for col, (key, label, var, low) in enumerate((
@@ -180,8 +193,6 @@ class NonNewtonianFrame(BaseAppFrame):
             widgets[f"{key}_spinbox"] = sb
         ttk.Label(tuning, text="Initial tuning — commission on apparatus",
                   wraplength=240).grid(row=2, column=0, columnspan=3, pady=8)
-        ttk.Label(panel, textvariable=self._control_message, wraplength=800).grid(
-            row=1, column=0, columnspan=3, sticky="w", pady=(8, 0))
         self._loop_widgets["flowrate"] = widgets
 
     def _sync_manual_slider(self, *_):
@@ -214,12 +225,12 @@ class NonNewtonianFrame(BaseAppFrame):
         loop.set_valve_display(0)
         self._auto_var.set(False)
         self._loop_widgets["flowrate"]["mode_switch"].configure(text="Mode: MANUAL")
-        self._control_message.set("Pump is off")
+        self._control_message.set("")
 
-    def _enable_powered_controls(self):
-        super()._enable_powered_controls()
-        if not self._switch_vars["pump"].get():
-            disable_loop_widgets(self._loop_widgets["flowrate"])
+    def _validate_experiment_id(self, *args):
+        """Make logging available immediately after connection, with an optional run label."""
+        if self._main_power_on:
+            self._toggle_logging_btn.configure(state="normal")
 
     def _disable_powered_controls(self):
         super()._disable_powered_controls()
@@ -229,6 +240,8 @@ class NonNewtonianFrame(BaseAppFrame):
     def _connect(self, model, connection, identifier):
         if self.daq.is_connected:
             self._disconnect()
+        for sensor in self.sensors.values():
+            sensor.reset()
         # This DAQ object is shared by dashboard screens. Only this apparatus's
         # outputs may be applied when this screen connects to its T7.
         self.daq.safety.safe_outputs.clear()
@@ -267,14 +280,29 @@ class NonNewtonianFrame(BaseAppFrame):
         # Do not carry this unit's output/polarity settings into another T7.
         self.daq.safety.safe_outputs.clear()
         for sensor in self.sensors.values():
-            sensor.value_var.set("---")
+            sensor.reset()
         self.loops["flowrate"].measured_var.set("---")
 
     def _on_toggle_switch(self, key, sw):
         if not self.daq.is_connected or not self._main_power_on:
             return
         try:
-            if self._switch_vars[key].get():
+            pump_on = self._switch_vars[key].get()
+            if not getattr(self.config, "MANUAL_OUTPUT_REQUIRES_PUMP", True):
+                # A valve is independent of the pump relay: preserve its command
+                # when starting/stopping the pump, and pause AUTO while stopped.
+                self.daq.write(sw["pin"], sw["active_value"] if pump_on else sw["inactive_value"])
+                self._pump_switch.configure(text="Pump: ON" if pump_on else "Pump: OFF")
+                loop = self.loops["flowrate"]
+                if loop.is_auto:
+                    if pump_on:
+                        loop.pid.initialize(loop.get_manual_voltage())
+                    else:
+                        loop.pid.reset()
+                self._control_message.set(
+                    "Automatic flow control paused — pump is off" if loop.is_auto and not pump_on
+                    else "Automatic flow control" if loop.is_auto else "Manual valve control")
+            elif pump_on:
                 self._reset_loop()
                 self.daq.write(self.loops["flowrate"].output_pin, 0.0)
                 self.daq.write(sw["pin"], sw["active_value"])
@@ -315,15 +343,23 @@ class NonNewtonianFrame(BaseAppFrame):
             if not self.daq.is_connected:
                 return
             loop = self.loops["flowrate"]
+            pump_on = self._switch_vars["pump"].get()
+            manual_requires_pump = getattr(self.config, "MANUAL_OUTPUT_REQUIRES_PUMP", True)
             try:
                 measured = finite_number(loop.apply_calibration(self.daq.read(loop.input_pin)))
                 loop.set_measured(measured)
             except Exception as exc:
                 loop.set_error()
-                if loop.is_auto and self._switch_vars["pump"].get():
+                if loop.is_auto and pump_on and self._main_power_on:
                     self._fault(f"Flow measurement failed: {exc}")
+                if loop.is_auto or manual_requires_pump:
+                    return
+            if not self._main_power_on:
                 return
-            if not (self._main_power_on and self._switch_vars["pump"].get()):
+            if loop.is_auto and not pump_on:
+                self._control_message.set("Automatic flow control paused — pump is off")
+                return
+            if manual_requires_pump and not pump_on:
                 return
             try:
                 if loop.is_auto:

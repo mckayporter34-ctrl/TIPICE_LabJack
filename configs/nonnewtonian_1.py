@@ -6,18 +6,21 @@ from apps.nonnewtonian import NonNewtonianFrame
 
 FrameClass = NonNewtonianFrame
 SYSTEM_NAME = "Non-Newtonian Fluids #1"
+DEVICE_MANAGER_ENABLED = False  # Development system: connect without student checkout.
 _ROOT = Path(__file__).resolve().parents[1]
 LOGO_FILE = str(_ROOT / "assets" / "tipice_logo.png")
 PID_IMAGE = str(_ROOT / "PI diagrams" / "NonNewtonaion_1_V1.png")
 LOG_FOLDER = "NonNewtonian1_LoggedData"
 ETHERNET_ADDRESS = "10.8.112.140"
 OUTPUT_LABEL = "Pump Speed"
+# Overlay anchors are pixels in the 949 × 389 source diagram.
 DIAGRAM_READOUTS = [
-    ("pressure_drop", "Pressure Drop (in WC)", 413, 71, "s"),
-    ("fluid_temperature", "Fluid Temperature (°C)", 219, 232, "ne"),
-    ("flowrate", "Flowrate (GPM)", 297, 232, "nw"),
-    ("output", "Pump Speed (%)", 217, 108, "s"),
+    ("pressure_drop", "Pressure Drop (in WC)", 666, 115, "s"),
+    ("fluid_temperature", "Fluid Temperature (°C)", 353, 374, "n"),
+    ("flowrate", "Flowrate (GPM)", 479, 374, "n"),
+    ("output", "Pump Speed (%)", 350, 110, "s"),
 ]
+PUMP_STATUS_POSITION = (350, 174)
 
 # There is no separate main-power relay in the legacy GUI. FIO0 enables the pump.
 MAIN_POWER_PIN = ""
@@ -59,7 +62,7 @@ CONTROL_LOOP_CONFIGS = {
         # Operator entry range and initial gains are starting values to commission;
         # the legacy GUI supplied neither a flow setpoint range nor PID tuning.
         "setpoint_min": 0.0, "setpoint_max": 30.0, "default_setpoint": 0.0,
-        "pid_defaults": {"Kc": 0.1, "Ti": 1.0, "Td": 0.0},
+        "pid_defaults": {"Kc": 0.1, "Ti": 0.05, "Td": 0.04},
     },
 }
 

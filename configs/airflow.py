@@ -11,6 +11,7 @@ from core.numeric_entry import finite_number
 
 FrameClass = AirflowFrame
 SYSTEM_NAME = "Air Flow Meters"
+DEVICE_MANAGER_ENABLED = False  # Development system: connect without student checkout.
 LOGO_FILE = str(Path(__file__).resolve().parents[1] / "assets" / "tipice_logo.png")
 LOG_FOLDER = "AirFlow_LoggedData"
 PID_IMAGE = str(Path(__file__).resolve().parents[1] / "PI diagrams" / "AirFlow_PID_V1.png")

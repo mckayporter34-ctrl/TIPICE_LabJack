@@ -98,6 +98,9 @@ class BaseAppFrame(ttk.Frame):
     # ══════════════════════════════════════════════════════════════════
 
     def _attempt_checkout(self, force=False):
+        if not getattr(self.config, "DEVICE_MANAGER_ENABLED", True):
+            return True
+
         student_id = self.student_id_var.get().strip()
         if not student_id:
             messagebox.showwarning("Missing ID", "Please enter your Student ID before connecting.")
@@ -132,6 +135,9 @@ class BaseAppFrame(ttk.Frame):
             return False
 
     def _release_checkout(self):
+        if not getattr(self.config, "DEVICE_MANAGER_ENABLED", True):
+            return
+
         try:
             requests.post(
                 "http://10.5.112.172:5000/release",
@@ -143,7 +149,9 @@ class BaseAppFrame(ttk.Frame):
 
     def _check_session_status(self):
         """Background kill-switch and session heartbeat ping."""
-        if not self._polling or not self.daq.is_connected:
+        if not self._polling or not getattr(self.config, "DEVICE_MANAGER_ENABLED", True):
+            return
+        if not self.daq.is_connected:
             self.after(3000, self._check_session_status)
             return
 
@@ -182,6 +190,7 @@ class BaseAppFrame(ttk.Frame):
                 unit=cfg["unit"],
                 pin=cfg["pin"],
                 calibration=cfg["calibration"],
+                filter_time_constant_s=cfg.get("filter_time_constant_s", 0.0),
             )
             for key, cfg in getattr(self.config, "SENSOR_CONFIGS", {}).items()
         }
@@ -227,6 +236,9 @@ class BaseAppFrame(ttk.Frame):
         # 1. CSV Sources
         sources = {}
         for header, (kind, key) in getattr(self.config, "LOG_COLUMNS", {}).items():
+            if kind == "sensor_raw" and key in self.sensors:
+                sources[header] = self.sensors[key].get_raw_value
+                continue
             if kind == "sensor" and key in self.sensors:
                 var = self.sensors[key].value_var
             elif kind == "loop" and key in self.loops:
@@ -394,11 +406,11 @@ class BaseAppFrame(ttk.Frame):
         f = ttk.LabelFrame(parent, text="Controls", padding=(20, 10))
         f.grid(row=row, column=col, padx=(20, 10), pady=(10, 10), sticky="nsew")
 
-        # Student ID Entry Box
-        id_frame = ttk.Frame(f)
-        id_frame.grid(row=0, column=0, padx=5, pady=(5, 5), sticky="nsew")
-        ttk.Label(id_frame, text="Student ID:").pack(side="left", padx=(0, 5))
-        ttk.Entry(id_frame, textvariable=self.student_id_var, width=12).pack(side="left")
+        if getattr(self.config, "DEVICE_MANAGER_ENABLED", True):
+            id_frame = ttk.Frame(f)
+            id_frame.grid(row=0, column=0, padx=5, pady=(5, 5), sticky="nsew")
+            ttk.Label(id_frame, text="Student ID:").pack(side="left", padx=(0, 5))
+            ttk.Entry(id_frame, textvariable=self.student_id_var, width=12).pack(side="left")
 
         self._connect_dropdown = ttk.OptionMenu(
             f, self._connection_var,
@@ -674,7 +686,7 @@ class BaseAppFrame(ttk.Frame):
     # ══════════════════════════════════════════════════════════════════
 
     def _on_connection_choice(self, choice):
-        # 1. Ask the historian for permission first before any hardware connection
+        # Managed systems require historian checkout before connecting.
         if choice in ["USB", "Ethernet"]:
             if not self._attempt_checkout():
                 # Reset UI dropdown to Disconnected if rejected

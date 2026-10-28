@@ -1,5 +1,6 @@
 import csv
 import math
+from datetime import datetime
 import tempfile
 import threading
 import unittest
@@ -139,7 +140,9 @@ class DataLoggerTests(unittest.TestCase):
         point.tag.return_value = point
         with patch.multiple("core.data_logger", INFLUX_AVAILABLE=True, INFLUX_TOKEN="test",
                             InfluxDBClient=Mock(return_value=client), Point=Mock(return_value=point),
-                            WritePrecision=SimpleNamespace(NS="ns"), SYNCHRONOUS=object(), create=True):
+                            WritePrecision=SimpleNamespace(NS="ns"), SYNCHRONOUS=object(), create=True), \
+                patch("core.data_logger.datetime") as clock:
+            clock.now.return_value = datetime(2026, 10, 28, 14, 30, 15)
             logger.start()
             state.update(run="Group_B", value="22")
             self.scheduler.run(logger._capture_id)
@@ -150,8 +153,8 @@ class DataLoggerTests(unittest.TestCase):
         self.assertEqual(client.write_api.return_value.write.call_count, 2)
         self.assertEqual(point.field.call_args_list[0].args, ("temperature", 21.5))
         self.assertEqual(point.field.call_args_list[1].args, ("temperature", 22.0))
-        self.assertTrue(all(call.args != ("run_id", "Group_B") for call in point.tag.call_args_list))
-        point.tag.assert_any_call("run_id", "Group_A")
+        run_tags = [call.args for call in point.tag.call_args_list if call.args[0] == "run_id"]
+        self.assertEqual(run_tags, [("run_id", "Group_A_143015")] * 2)
         point.tag.assert_any_call("unit_op", "STHX1")
         client.close.assert_called_once()
 

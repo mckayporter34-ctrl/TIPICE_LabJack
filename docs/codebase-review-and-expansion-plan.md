@@ -2,6 +2,13 @@
 
 Review date: October 8, 2026.
 
+This is a historical assessment of the code at that date, rather than a current
+list of defects. Later changes include the development selector, device-manager
+opt-outs for development systems, Non-Newtonian control panels, and Unit #2's
+differential thermocouple filtering and raw/filtered logging. See the
+[README](../README.md) and [Non-Newtonian operation guide](nonnewtonian.md)
+for the current configuration and behavior.
+
 ## Main recommendation
 
 Build one shared apparatus runtime, then add the ten new systems as validated

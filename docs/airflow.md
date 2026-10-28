@@ -1,10 +1,10 @@
 # Air Flow Meters
 
-Use **Development** at the top of the main selector, enter `dietcoke`, and launch
-**Air Flow Meters → CB217A · Peter**. The screen uses
+Use **Development** at the top of the main selector, enter `dietcoke`, and choose
+**Launch Unit** on the **Air Flow Meters** card. The screen uses
 the same shared 1450 × 800 initial control-panel window and maximization behavior
-as the other apparatuses. Its content scrolls on smaller displays. The dashboard
-also scrolls to accommodate the fourth apparatus.
+as the other apparatuses. Its content scrolls on smaller displays. The Development
+selector contains the Air Flow Meters and Non-Newtonian Fluids cards.
 
 The supplied `PI diagrams/AirFlow_PID_V1.png` is displayed without stretching.
 The four live ΔP readouts connect to the ends of the dashed taps. Each live temperature
