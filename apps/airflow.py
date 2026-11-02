@@ -1,18 +1,20 @@
 """Airflow apparatus screen using the shared controls, logging and lifecycle."""
 
 import tkinter as tk
+from math import ceil
 from tkinter import ttk, simpledialog
 
 from PIL import Image, ImageTk
 
 from core.base_app import BaseAppFrame, UPDATE_INTERVAL_MS
 from core.numeric_entry import finite_number
-from core.ui_builders import enable_loop_widgets
+from core.ui_builders import build_apparatus_tile, enable_loop_widgets, ensure_control_styles, readout_row_scale
 
 
 class AirflowFrame(BaseAppFrame):
     def _build_ui(self):
         self.style = ttk.Style(self)
+        ensure_control_styles(self.style)
         self._sensor_widgets = {}
         self._loop_widgets = {}
         self._overlay_cards = []
@@ -23,7 +25,7 @@ class AirflowFrame(BaseAppFrame):
         body.pack(fill="both", expand=True, padx=10, pady=10)
         body.rowconfigure(0, weight=1)
         body.columnconfigure(0, weight=1)
-        self._canvas = tk.Canvas(body, highlightthickness=0)
+        self._canvas = tk.Canvas(body, highlightthickness=0, borderwidth=0)
         self._canvas.grid(row=0, column=0, sticky="nsew")
         vertical = ttk.Scrollbar(body, command=self._canvas.yview)
         vertical.grid(row=0, column=1, sticky="ns")
@@ -38,12 +40,14 @@ class AirflowFrame(BaseAppFrame):
         self._sf.bind("<Configure>", lambda _: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
 
         sidebar = ttk.Frame(self._sf, width=280)
+        self._sidebar = sidebar
         sidebar.grid(row=0, column=0, rowspan=2, sticky="ns", padx=(0, 10))
         self._build_connection(sidebar)
-        self._build_flow_control(sidebar)
         self._build_logging(sidebar)
+        self._build_flow_control(sidebar)
         self._theme_btn = ttk.Button(sidebar, text="Dark Mode", command=self._toggle_theme)
         self._theme_btn.pack(fill="x", pady=(6, 0))
+        self._apparatus_tile = build_apparatus_tile(sidebar, self.config.APPARATUS_IMAGE)
         logo = ttk.Frame(sidebar)
         logo.pack(fill="x", pady=(12, 0))
         with Image.open(self.config.LOGO_FILE) as source:
@@ -54,9 +58,16 @@ class AirflowFrame(BaseAppFrame):
         self._logo_label.pack(fill="x")
         ttk.Label(logo, text="BYU TIPICE", font=("Helvetica", 18, "bold"), anchor="center").pack(fill="x", pady=(4, 0))
 
-        diagram = ttk.LabelFrame(self._sf, text="Piping and Instrumentation Diagram", padding=8)
-        diagram.grid(row=0, column=1, sticky="nsew")
-        self._pid = tk.Canvas(diagram, width=1080, height=410, bg="white", highlightthickness=0)
+        # Keep the diagram/pressures together while the taller sidebar scrolls.
+        self._diagram_column = ttk.Frame(self._sf)
+        self._diagram_column.grid(row=0, column=1, rowspan=2, sticky="new")
+        self._diagram_column.columnconfigure(0, weight=1)
+        self._diagram_column.rowconfigure(0, weight=1)
+        self._diagram_column.grid_propagate(False)
+        diagram = ttk.LabelFrame(self._diagram_column, text="Piping and Instrumentation Diagram", padding=8)
+        diagram.grid(row=0, column=0, sticky="nsew")
+        self._diagram_panel = diagram
+        self._pid = tk.Canvas(diagram, width=1080, height=410, bg="white", highlightthickness=0, borderwidth=0)
         self._pid.pack(fill="both", expand=True)
         with Image.open(self.config.PID_IMAGE) as source:
             self._diagram_image = source.convert("RGB")
@@ -77,9 +88,14 @@ class AirflowFrame(BaseAppFrame):
             self._delta_overlays.append((x, item))
             self._sensor_widgets[key] = {"entry": entry}
 
-        indicator = tk.Label(self._pid, text="Rotameter -\nIndicator Only", bg="white", fg="#263238",
-                             font=("Helvetica", 10, "bold"), relief="solid", bd=1, padx=6, pady=8)
-        self._rotameter_overlay = self._pid.create_window(0, 0, window=indicator, anchor="nw")
+        indicator = tk.Frame(self._pid, bg="white")
+        tk.Label(indicator, text="Rotameter", bg="white", fg="#263238",
+                 font=("Helvetica", 11, "bold")).pack()
+        self._rotameter_text = tk.StringVar(self, value="Indicator Only")
+        self._rotameter_entry = ttk.Entry(
+            indicator, textvariable=self._rotameter_text, width=14, justify="center", state="readonly")
+        self._rotameter_entry.pack(pady=(3, 0))
+        self._rotameter_overlay = self._pid.create_window(0, 0, window=indicator, anchor="n")
         self._overlay_cards.append(indicator)
 
         flow_card = tk.Frame(self._pid, bg="white")
@@ -116,23 +132,40 @@ class AirflowFrame(BaseAppFrame):
             self._temperature_entries[key] = entry
             self._sensor_widgets[key] = {"entry": entry}
         self._pid.bind("<Configure>", self._resize_diagram)
+        scale = max(
+            readout_row_scale([(x, self._pid.nametowidget(self._pid.itemcget(item, "window")))
+                               for x, item in self._delta_overlays] +
+                              [(435, flow_card), (1119, indicator)]),
+            readout_row_scale([(x, self._pid.nametowidget(self._pid.itemcget(item, "window")))
+                               for x, item in self._temperature_overlays]),
+        )
+        w, h = self._diagram_image.size
+        margin = max(32, self._rotameter_entry.winfo_reqwidth() / 2 + 8)
+        self._pid.configure(width=max(1080, ceil(w * scale + 2 * margin)),
+                            height=max(410, ceil(h * scale + 74)))
 
-        entrance = ttk.LabelFrame(self._sf, text="Entrance Pressures (psi)", padding=(12, 8))
-        entrance.grid(row=1, column=1, sticky="ew", pady=(8, 0))
+        entrance = ttk.LabelFrame(self._diagram_column, text="Entrance Pressures (psi)", padding=(12, 20))
+        entrance.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         self._entrance_panel = entrance
         for col, key in enumerate(self.config.ENTRANCE_PRESSURE_KEYS):
             self._sensor_cell(entrance, key, col, self.sensors[key].label)
-        ttk.Label(entrance, text="Rotameter - Indicator Only", anchor="center").grid(
-            row=2, column=4, padx=6, pady=(2, 0))
 
     def _resize_body(self, event):
-        self._canvas.itemconfigure(self._sf_window, width=max(1280, event.width),
+        right_width = max(self._diagram_panel.winfo_reqwidth(), self._entrance_panel.winfo_reqwidth())
+        min_width = self._sidebar.winfo_reqwidth() + 10 + right_width
+        self._diagram_column.configure(
+            width=right_width,
+            height=max(event.height, self._diagram_panel.winfo_reqheight() +
+                       self._entrance_panel.winfo_reqheight() + 8))
+        self._canvas.itemconfigure(self._sf_window, width=max(1280, min_width, event.width),
                                    height=max(self._sf.winfo_reqheight(), event.height))
 
     def _resize_diagram(self, event):
         # Keep the complete drawing in proportion and reserve a band for ΔP cards.
         w, h = self._diagram_image.size
-        scale = max(0.01, min((event.width - 64) / w, (event.height - 74) / h))
+        # Reserve space for the rotameter card centered under the rightmost pipe.
+        margin = max(32, self._rotameter_entry.winfo_reqwidth() / 2 + 8)
+        scale = max(0.01, min((event.width - 2 * margin) / w, (event.height - 74) / h))
         width, height = max(1, round(w * scale)), max(1, round(h * scale))
         left = (event.width - width) / 2
         top = max(0, (event.height - height - 74) / 2)
@@ -141,14 +174,12 @@ class AirflowFrame(BaseAppFrame):
         self._pid.coords(self._diagram_item, left, top)
         for x, item in self._delta_overlays:
             self._pid.coords(item, left + x * scale, top + 294 * scale)
-        orifice_card = self._sensor_widgets["orifice_delta_p"]["entry"].master
         self._pid.coords(self._rotameter_overlay,
-                         left + 951 * scale + orifice_card.winfo_reqwidth() / 2 + 8,
-                         top + 294 * scale)
+                         left + 1119 * scale, top + 294 * scale)
         self._pid.coords(self._flow_overlay, left + 435 * scale, top + 294 * scale)
         # Align the valve value (rather than the whole label/value card) with its tap.
         valve_center = self._valve_entry.winfo_y() + self._valve_entry.winfo_reqheight() / 2
-        self._pid.coords(self._valve_overlay, left + 165 * scale,
+        self._pid.coords(self._valve_overlay, left + 177 * scale,
                          top + 170 * scale - valve_center + self._valve_entry.master.winfo_reqheight() / 2)
         for number, (x, item) in enumerate(self._temperature_overlays, start=1):
             entry = self._temperature_entries[f"temperature_{number}"]
@@ -178,23 +209,23 @@ class AirflowFrame(BaseAppFrame):
 
     def _build_flow_control(self, parent):
         loop = self.loops["flowrate"]
-        panel = ttk.LabelFrame(parent, text=loop.label, padding=(12, 8))
+        panel = ttk.LabelFrame(parent, text=loop.label, padding=(16, 14))
         panel.pack(fill="x", pady=(0, 8))
         panel.columnconfigure(1, weight=1)
         widgets = {"frame": panel}
-        ttk.Label(panel, text="Setpoint (SCFM)").grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Label(panel, text="Setpoint (SCFM)").grid(row=0, column=0, sticky="w", pady=6)
         widgets["setpoint_spinbox"] = ttk.Spinbox(panel, from_=0, to=350, textvariable=loop.setpoint_var, width=9)
-        widgets["setpoint_spinbox"].grid(row=0, column=1, sticky="ew", padx=(8, 0))
-        ttk.Label(panel, text="Measured (SCFM)").grid(row=1, column=0, sticky="w", pady=4)
+        widgets["setpoint_spinbox"].grid(row=0, column=1, sticky="ew", padx=(12, 0), pady=4)
+        ttk.Label(panel, text="Measured (SCFM)").grid(row=1, column=0, sticky="w", pady=6)
         widgets["measured_entry"] = ttk.Entry(panel, textvariable=loop.measured_var, width=9, state="readonly")
-        widgets["measured_entry"].grid(row=1, column=1, sticky="ew", padx=(8, 0))
+        widgets["measured_entry"].grid(row=1, column=1, sticky="ew", padx=(12, 0), pady=4)
         self._auto_var = tk.BooleanVar(value=False)
         widgets["mode_switch"] = ttk.Checkbutton(panel, text="Mode: MANUAL", style="Switch",
                                                    variable=self._auto_var, command=self._toggle_mode)
-        widgets["mode_switch"].grid(row=2, column=0, columnspan=2, sticky="w", pady=6)
+        widgets["mode_switch"].grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 12))
         ttk.Label(panel, text="Valve Command (%)").grid(row=3, column=0, columnspan=2, sticky="w")
         manual = ttk.Frame(panel)
-        manual.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(6, 8))
+        manual.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(8, 12))
         manual.columnconfigure(0, weight=1)
         widgets["scale"] = ttk.Scale(manual, from_=0, to=100, variable=loop.valve_position)
         widgets["scale"].grid(row=0, column=0, sticky="ew")
@@ -205,7 +236,7 @@ class AirflowFrame(BaseAppFrame):
             widgets["manual_spinbox"].bind(event, self._commit_manual)
 
         tuning = ttk.Frame(panel)
-        tuning.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(3, 0))
+        tuning.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         for col, (key, label, var, low) in enumerate((
             ("Kc", "Kc", loop.Kc_var, -1000),
             ("Ti", "Ti (min)", loop.Ti_var, 0),
@@ -243,7 +274,7 @@ class AirflowFrame(BaseAppFrame):
 
     def _build_logging(self, parent):
         panel = ttk.LabelFrame(parent, text="Data Logging", padding=(12, 8))
-        panel.pack(fill="x")
+        panel.pack(fill="x", pady=(0, 8))
         row = ttk.Frame(panel)
         row.pack(fill="x", pady=(0, 6))
         ttk.Label(row, text="Experiment ID").pack(side="left")

@@ -13,6 +13,40 @@ from core.sensor import Sensor
 from core.control_loop import ControlLoop
 
 
+def ensure_control_styles(style):
+    """Keep development controls usable if a platform falls back to native ttk."""
+    for name in ("Switch", "ToggleButton"):
+        try:
+            style.layout(name)
+        except tk.TclError:
+            style.layout(name, style.layout("TCheckbutton"))
+
+
+def build_apparatus_tile(parent, image_path):
+    """Build a sidebar image tile, keeping the image's original proportions."""
+    from PIL import Image, ImageTk
+
+    tile = ttk.LabelFrame(parent, text="Apparatus Image", padding=10)
+    tile.pack(fill="x", pady=(10, 0))
+    with Image.open(image_path) as source:
+        image = source.convert("RGB")
+    image.thumbnail((180, 180), Image.Resampling.LANCZOS)
+    tile.photo = ImageTk.PhotoImage(image, master=tile)
+    ttk.Label(tile, image=tile.photo, anchor="center").pack(fill="x")
+    return tile
+
+
+def readout_row_scale(readouts, gap=12):
+    """Minimum image scale that leaves room for a row of fixed-size Tk cards.
+
+    Coordinates are image pixels; widget widths include the current font/DPI
+    and theme padding. This keeps Windows font scaling from overlapping cards.
+    """
+    ordered = sorted(readouts, key=lambda item: item[0])
+    return max(((a.winfo_reqwidth() / 2 + b.winfo_reqwidth() / 2 + gap) / (bx - ax)
+                for (ax, a), (bx, b) in zip(ordered, ordered[1:])), default=0)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Read-only sensor display  (no control, no PID)
 # ══════════════════════════════════════════════════════════════════════════════

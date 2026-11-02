@@ -88,7 +88,7 @@ class DashboardUITests(unittest.TestCase):
                     expected = {unit["module"] for info in AVAILABLE_CONFIGS.values()
                                 if bool(info.get("development")) == development for unit in info["units"]}
                     self.assertEqual(modules, expected)
-                    self.assertEqual(len(list(cards(frame))), 2 if development else 3)
+                    self.assertEqual(len(list(cards(frame))), 3)
                     for width in (1000, 1150):
                         root.geometry(f"{width}x700")
                         root.deiconify()

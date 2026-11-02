@@ -140,13 +140,22 @@ class AirflowUITests(unittest.TestCase):
         self.assertEqual(str(frame._flow_entry.cget("textvariable")), str(frame.loops["flowrate"].measured_var))
         self.assertEqual(str(frame._valve_entry.cget("textvariable")),
                          str(frame.loops["flowrate"].rounded_valve_position))
+        self.assertEqual(frame._rotameter_entry.get(), "Indicator Only")
+        self.assertEqual(str(frame._rotameter_entry.cget("state")), "readonly")
+        sidebar_tiles = [child.cget("text") for child in frame._sidebar.winfo_children()
+                         if isinstance(child, ttk.LabelFrame)]
+        self.assertEqual(sidebar_tiles, ["Controls", "Data Logging", "Air Flow Control", "Apparatus Image"])
+        self.assertTrue(frame._apparatus_tile.photo)
         for key in airflow.DELTA_P_KEYS:
             entry = frame._sensor_widgets[key]["entry"]
             self.assertEqual(entry.master.master, frame._pid)
         for key in airflow.ENTRANCE_PRESSURE_KEYS:
             self.assertEqual(frame._sensor_widgets[key]["entry"].master, frame._entrance_panel)
         self.assertGreater(frame._entrance_panel.winfo_rooty(), frame._pid.winfo_rooty() + frame._pid.winfo_height())
-        self.assertLessEqual(frame._sf.winfo_height(), frame._canvas.winfo_height())
+        # The apparatus image can scroll below the viewport; the pressures stay
+        # directly below the diagram instead of being pushed down by the sidebar.
+        entrance_bottom = frame._entrance_panel.winfo_rooty() + frame._entrance_panel.winfo_height()
+        self.assertLessEqual(entrance_bottom, frame._canvas.winfo_rooty() + frame._canvas.winfo_height())
         # All overlay windows must remain separated and inside the drawing canvas.
         readout_items = [frame._delta_overlays[0][1], frame._flow_overlay,
                          *(item for _, item in frame._delta_overlays[1:]), frame._rotameter_overlay]
@@ -164,7 +173,10 @@ class AirflowUITests(unittest.TestCase):
         valve_left, valve_top, valve_right, _ = frame._pid.bbox(frame._valve_overlay)
         self.assertGreaterEqual(valve_left, 0)
         self.assertGreaterEqual(valve_top, 0)
-        self.assertLess(valve_right, image_left + 239 * scale)
+        self.assertAlmostEqual(valve_right, image_left + 177 * scale, delta=1)
+        rotameter_left, _, rotameter_right, _ = frame._pid.bbox(frame._rotameter_overlay)
+        self.assertAlmostEqual((rotameter_left + rotameter_right) / 2,
+                               image_left + 1119 * scale, delta=1)
         for number, (x, item) in enumerate(frame._temperature_overlays, start=1):
             key = f"temperature_{number}"
             entry = frame._temperature_entries[key]
@@ -178,10 +190,9 @@ class AirflowUITests(unittest.TestCase):
             self.assertGreaterEqual(top, 0)
             self.assertLess(bottom, image_top + 177 * scale)  # Above the matching TI circle.
             self.assertLessEqual(right, frame._pid.winfo_width())
-        panels = [widget for widget in frame._sf.winfo_children() if isinstance(widget, ttk.LabelFrame)]
+        panels = [widget for widget in frame._diagram_column.winfo_children() if isinstance(widget, ttk.LabelFrame)]
         self.assertCountEqual([str(panel.cget("text")) for panel in panels],
                               ["Piping and Instrumentation Diagram", "Entrance Pressures (psi)"])
-        self.assertAlmostEqual(frame._sf.winfo_height(), frame._canvas.winfo_height(), delta=1)
         frame._toggle_theme()
         self.assertEqual(ttk.Style().theme_use(), "forest-dark")
         frame._toggle_theme()

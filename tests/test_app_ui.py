@@ -18,8 +18,9 @@ from core.safety import SafetyManager, SafetyState
 from ui_test_support import gui_root
 
 
+# Pump Cart has dedicated lifecycle/fit checks in test_pump_cart.py.
 CONFIGS = ["shell_tube_hx_1", "shell_tube_hx_2", "shell_tube_hx_3",
-           "catalytic_methanation_1", "catalytic_methanation_2", "packed_columns", "pump_cart"]
+           "catalytic_methanation_1", "catalytic_methanation_2", "packed_columns"]
 
 
 class FakeDAQ:

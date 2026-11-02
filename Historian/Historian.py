@@ -1,5 +1,12 @@
-import time
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from core.runtime import require_python
+
+require_python()
+
+import time
 import threading
 from labjack import ljm
 from influxdb_client import InfluxDBClient, Point, WritePrecision
@@ -7,8 +14,6 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 from flask import Flask, request
 
 # Shared settings; credentials stay in environment variables or a local ignored file.
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core.historian_config import INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET
 
 # --- CALIBRATION FUNCTIONS for NNF ---

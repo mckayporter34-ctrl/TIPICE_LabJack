@@ -10,6 +10,7 @@ DEVICE_MANAGER_ENABLED = False  # Development system: connect without student ch
 _ROOT = Path(__file__).resolve().parents[1]
 LOGO_FILE = str(_ROOT / "assets" / "tipice_logo.png")
 PID_IMAGE = str(_ROOT / "PI diagrams" / "NonNewtonaion_1_V1.png")
+APPARATUS_IMAGE = str(_ROOT / "images" / "Non_Newtonian_Apparatus.png")
 LOG_FOLDER = "NonNewtonian1_LoggedData"
 ETHERNET_ADDRESS = "10.8.112.140"
 OUTPUT_LABEL = "Pump Speed"
@@ -18,7 +19,7 @@ DIAGRAM_READOUTS = [
     ("pressure_drop", "Pressure Drop (in WC)", 666, 115, "s"),
     ("fluid_temperature", "Fluid Temperature (°C)", 353, 374, "n"),
     ("flowrate", "Flowrate (GPM)", 479, 374, "n"),
-    ("output", "Pump Speed (%)", 350, 110, "s"),
+    ("output", "Pump Speed (%)", 350, 115, "s"),
 ]
 PUMP_STATUS_POSITION = (350, 174)
 

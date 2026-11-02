@@ -15,6 +15,7 @@ DEVICE_MANAGER_ENABLED = False  # Development system: connect without student ch
 LOGO_FILE = str(Path(__file__).resolve().parents[1] / "assets" / "tipice_logo.png")
 LOG_FOLDER = "AirFlow_LoggedData"
 PID_IMAGE = str(Path(__file__).resolve().parents[1] / "PI diagrams" / "AirFlow_PID_V1.png")
+APPARATUS_IMAGE = str(Path(__file__).resolve().parents[1] / "images" / "Air_Flow_Apparatus.png")
 
 # No relay or network address is supplied in the implementation workbook.
 # Control Enable gates the valve output in software; it does not start the blower.

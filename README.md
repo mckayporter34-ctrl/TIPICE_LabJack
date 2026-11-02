@@ -4,6 +4,10 @@ This repository contains the software for controlling and monitoring various lab
 
 ## Architecture
 
+The development selector includes **Pump Cart → Unit #1**, sized for a
+1366×768 laptop display with a single main-flow PID and animated P&ID.
+See [Pump Cart notes](docs/pump-cart.md) for label positions, channels and TODOs.
+
 The system is built with a modular architecture:
 - `main.py`: The entry point for the application. It launches a unified dashboard where users can select which apparatus to control.
 - `configs/`: Contains configuration files for each apparatus (e.g., Packed Column, Pump Cart, Shell & Tube Heat Exchanger, Catalytic Methanation). These dictate the UI layout, sensor mappings, and control loops for the specific setup.
@@ -27,21 +31,69 @@ Ensure the device is powered and connected (via USB or Ethernet) before launchin
 
 ## Setup & Running Instructions
 
-We have provided convenient scripts to automatically create a virtual environment and install the required dependencies (listed in `requirements.txt`).
+**Python 3.14.x is required on development and lab machines.** Any 3.14 patch
+release is accepted; older versions and Python 3.15 or newer are rejected.
+Install Python 3.14 from [python.org](https://www.python.org/downloads/) with
+Tkinter support (included in the standard Windows and macOS installers).
+The `.python-version` file also selects 3.14 for compatible version managers.
+
+The setup scripts create a virtual environment and install the dependencies
+listed in `requirements.txt`. Setup and launch both check the environment's
+Python version, and direct application startup checks it before importing GUI
+or LabJack dependencies. An incompatible environment is never upgraded in place.
 
 ### On Windows
-1. Double-click `setup.bat` (or run it in the command prompt). This only needs to be done once.
-2. To start the GUI, double-click `run.bat`.
+
+1. Install Python 3.14, including the Python launcher, or add Python 3.14 to PATH.
+   Setup prefers `py -3.14`, then checks `python3.14` and `python` on PATH.
+2. Double-click `setup.bat` (or run it in the command prompt).
+3. To start the GUI, double-click `run.bat`.
+
+Both batch files locate the project from their own location, including when
+started from a shortcut or another working directory. Development GUI layout
+and Windows verification details are in [Windows GUI checks](docs/windows-gui-checks.md).
 
 ### On macOS / Linux
-1. Open a terminal in the project directory and run the setup script (only needed once):
+
+1. Install Python 3.14 with Tkinter and make `python3.14` available on PATH.
+   Setup also accepts `python3` or `python` if it resolves to Python 3.14.
+2. Open a terminal in the project directory and run the setup script:
    ```bash
    ./setup.sh
    ```
-2. To start the GUI, run:
+3. To start the GUI, run:
    ```bash
    ./run.sh
    ```
+
+### Updating an existing lab installation
+
+Updating the source code does not change the Python version inside `.venv`.
+If setup or launch reports a version other than 3.14, close the application,
+install Python 3.14, and rename the old environment before running setup again.
+For example, from the project directory in Windows PowerShell:
+
+```powershell
+Rename-Item .venv .venv-old
+.\setup.bat
+.\.venv\Scripts\python.exe --version
+.\run.bat
+```
+
+On macOS/Linux:
+
+```sh
+mv .venv .venv-old
+./setup.sh
+.venv/bin/python --version
+./run.sh
+```
+
+Use `.venv-old-2`, etc. if `.venv-old` already exists; these backups are ignored
+by Git. The version check
+should report `Python 3.14.x`. Only rename `.venv`; configurations, local
+credentials, and recorded data stay in their existing locations. Run setup again
+when dependencies change. A compatible environment is reused.
 
 ## Legacy Code
 
@@ -107,5 +159,6 @@ repository root. This file is ignored by Git. `INFLUX_URL`, `INFLUX_ORG`, and
 Without a token or the optional InfluxDB library, local CSV logging still works.
 
 The standalone service is in `Historian/Historian.py` and uses the same settings.
-Install `requirements.txt` before running it. Credentials and local recording
-files are excluded from commits.
+It also requires Python 3.14.x; run it with the project's virtual-environment
+Python after setup. Credentials and local recording files are excluded from
+commits.

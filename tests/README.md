@@ -1,24 +1,28 @@
 # Regression checks
 
+Run setup first and use the project's Python 3.14.x virtual environment for all
+checks. On Windows, replace `.venv/bin/python` below with
+`.\.venv\Scripts\python.exe`.
+
 Run the controller-input and CSV-writer tests without a window server:
 
 ```sh
-python3 -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
 Run the full suite, including actual Tkinter widgets with fake LabJack I/O, from a
 desktop session with Tkinter and Pillow installed:
 
 ```sh
-LABJACK_GUI_TESTS=1 python3 -m unittest discover -s tests -v
+LABJACK_GUI_TESTS=1 .venv/bin/python -m unittest discover -s tests -v
 ```
 
 In PowerShell, set `$env:LABJACK_GUI_TESTS = '1'` before running the same Python
 command. These tests never connect to a LabJack or require its drivers.
 Temporary CSV files are created outside apparatus log folders and removed.
 
-Coverage includes all nine registered apparatus configurations and the standalone Pump
-Cart UI: manual setpoint editing, AUTO locking against typing and spinbox arrows,
+Coverage includes the registered apparatus configurations and the standalone Pump
+Cart prototype: manual setpoint editing, AUTO locking against typing and spinbox arrows,
 power cycling, packed-column selection, numeric input messages and partial edits,
 and orange He cylinders on both catalytic units. Logging checks cover invalid
 tuning, failed sensor/source callbacks, NaN/infinity, UI-thread ownership,
@@ -30,6 +34,10 @@ intentionally produce warning
 and error log output; the final unittest result determines success.
 Physical control performance and apparatus commissioning were not tested.
 
+`test_runtime.py` verifies that Python 3.14 patch releases are accepted, older
+and newer minor versions are rejected, and both application entry points reject
+an incompatible runtime before loading GUI or hardware dependencies.
+
 ## Airflow checks
 
 `test_airflow.py` adds six checks for the workbook's channel ranges, Type T
@@ -38,7 +46,7 @@ placement, standard-window fit, manual/AUTO states, valve command bounds, shutdo
 and failed cold-junction compensation. Three use real Tk widgets with fake I/O:
 
 ```sh
-LABJACK_GUI_TESTS=1 python3 -m unittest discover -s tests -p test_airflow.py -v
+LABJACK_GUI_TESTS=1 .venv/bin/python -m unittest discover -s tests -p test_airflow.py -v
 ```
 
 No test connects to lab hardware or a real historian. Hardware gain, valve transfer function, and
@@ -53,7 +61,7 @@ tests also cover P&ID overlay placement, themes, active-low pump start/stop,
 reconnect, shutdown, configuration failure, and CSV logging:
 
 ```sh
-LABJACK_GUI_TESTS=1 python3 -m unittest discover -s tests -p test_nonnewtonian.py -v
+LABJACK_GUI_TESTS=1 .venv/bin/python -m unittest discover -s tests -p test_nonnewtonian.py -v
 ```
 
 Unit #2 checks cover the workbook channel assignments, 0–45 GPM and 0–50 inches
@@ -66,6 +74,15 @@ Both units also check immediate control/logging access with the pump OFF,
 Unit #1 pump-speed gating, independent Unit #2 manual valve positioning,
 paused AUTO flow control while stopped, red/green pump status above the pump,
 centered temperature/flow boxes, and removal of the lower voltage-mapping text.
+Layout assertions also cover the aligned output/pressure readouts, setpoint/mode
+and measurement/manual controls, centered PID fields, and apparatus-image tiles.
+
+`test_development_layout.py` builds all three development screens at three Tk
+font scales in both Forest themes and standard ttk. On Windows it also checks
+the available Windows themes. It checks readout separation, control sizing, and
+scroll access at a smaller window size. See
+[Windows GUI checks](../docs/windows-gui-checks.md) for the native Windows test
+procedure and the limits of macOS font-scale simulation.
 
 `test_sensor.py` checks optional exponential smoothing, the 5-second step
 response with irregular sample intervals, retained calculation precision,
@@ -78,7 +95,7 @@ temperature CSV columns, and that read failures and reconnects clear history.
 `test_dashboard.py` checks cancellation and incorrect passwords, unlocking with
 `dietcoke`, locking again on return to the main selector, blocked direct launches,
 and return navigation from the development control panels. The desktop test
-checks the three main cards, two development cards, and top navigation buttons.
+checks the three main cards, three development cards, and top navigation buttons.
 
 The logger tests also check UI-thread snapshots, timestamped run labels that
 stay fixed during a logging session, skipped bad
@@ -90,3 +107,13 @@ checkout/release/heartbeat requests for all development units. Main systems reta
 required IDs and checkout, including declined/accepted session takeovers,
 ownership heartbeats, shutdown, rejected requests, and network outages. These checks
 run without a window server, lab hardware, or a real device-manager API.
+
+## Pump Cart #1
+
+`test_pump_cart.py` covers the development-only unit #1 registration, the single
+main-flow PID, workbook channel/range mapping, Type K temperature on AIN0,
+TODO calibration handling, complete fit without scrollbars at 1366×768 and
+1320×700 in Forest light/dark and standard ttk, all nine ΔP readouts, separate
+manual pump speed/valve commands, flow animation paths, main versus bypass
+feedback, CSV contents and shutdown/fault behavior. Hardware and historian I/O
+are fake. See [Pump Cart notes](../docs/pump-cart.md).

@@ -1,6 +1,7 @@
 """Non-Newtonian apparatus screen with a pump-driven flow PID loop."""
 
 import tkinter as tk
+from math import ceil
 from tkinter import messagebox, simpledialog, ttk
 
 from PIL import Image, ImageTk
@@ -8,11 +9,13 @@ from PIL import Image, ImageTk
 from core.base_app import BaseAppFrame, DT_MINUTES, UPDATE_INTERVAL_MS
 from core.numeric_entry import finite_number
 from core.safety import SafetyState
+from core.ui_builders import build_apparatus_tile, ensure_control_styles, readout_row_scale
 
 
 class NonNewtonianFrame(BaseAppFrame):
     def _build_ui(self):
         self.style = ttk.Style(self)
+        ensure_control_styles(self.style)
         self._sensor_widgets = {}
         self._loop_widgets = {}
         self._theme_dark = False
@@ -25,7 +28,7 @@ class NonNewtonianFrame(BaseAppFrame):
         body.pack(fill="both", expand=True, padx=10, pady=10)
         body.columnconfigure(0, weight=1)
         body.rowconfigure(0, weight=1)
-        self._canvas = tk.Canvas(body, highlightthickness=0)
+        self._canvas = tk.Canvas(body, highlightthickness=0, borderwidth=0)
         self._canvas.grid(row=0, column=0, sticky="nsew")
         vertical = ttk.Scrollbar(body, command=self._canvas.yview)
         vertical.grid(row=0, column=1, sticky="ns")
@@ -40,6 +43,7 @@ class NonNewtonianFrame(BaseAppFrame):
         self._sf.bind("<Configure>", lambda _: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
 
         sidebar = ttk.Frame(self._sf)
+        self._sidebar = sidebar
         sidebar.grid(row=0, column=0, rowspan=2, sticky="ns", padx=(0, 12))
         controls = ttk.LabelFrame(sidebar, text="Controls", padding=12)
         controls.pack(fill="x", pady=(0, 10))
@@ -77,6 +81,7 @@ class NonNewtonianFrame(BaseAppFrame):
                 ttk.Entry(row, textvariable=var, state="readonly", width=7).pack(side="right")
         self._theme_btn = ttk.Button(sidebar, text="Dark Mode", command=self._toggle_theme)
         self._theme_btn.pack(fill="x")
+        self._apparatus_tile = build_apparatus_tile(sidebar, self.config.APPARATUS_IMAGE)
         with Image.open(self.config.LOGO_FILE) as source:
             logo = source.convert("RGBA")
         logo.thumbnail((180, 120), Image.Resampling.LANCZOS)
@@ -85,8 +90,9 @@ class NonNewtonianFrame(BaseAppFrame):
         ttk.Label(sidebar, text="BYU TIPICE", font=("Helvetica", 20, "bold"), anchor="center").pack(fill="x")
 
         diagram = ttk.LabelFrame(self._sf, text="Piping and Instrumentation Diagram", padding=8)
+        self._diagram_panel = diagram
         diagram.grid(row=0, column=1, sticky="nsew", pady=(0, 10))
-        self._pid = tk.Canvas(diagram, width=950, height=390, bg="white", highlightthickness=0)
+        self._pid = tk.Canvas(diagram, width=950, height=390, bg="white", highlightthickness=0, borderwidth=0)
         self._pid.pack(fill="both", expand=True)
         with Image.open(self.config.PID_IMAGE) as source:
             self._diagram_image = source.convert("RGB")
@@ -112,9 +118,20 @@ class NonNewtonianFrame(BaseAppFrame):
         self._update_pump_indicator()
         self._pid.bind("<Configure>", self._resize_diagram)
         self._build_flow_panel(self._sf)
+        # Size from actual widgets rather than assuming macOS font metrics.
+        scale = max(readout_row_scale([
+            (x, self._readout_widgets[key]["frame"])
+            for key, _, x, _, anchor in self.config.DIAGRAM_READOUTS if anchor == row_anchor
+        ]) for row_anchor in ("n", "s"))
+        w, h = self._diagram_image.size
+        self._pid.configure(width=max(950, ceil(w * scale + 64)),
+                            height=max(390, ceil(h * scale + 110)))
 
     def _resize_body(self, event):
-        self._canvas.itemconfigure(self._sf_window, width=max(1200, event.width),
+        right_width = max(self._diagram_panel.winfo_reqwidth(),
+                          self._loop_widgets["flowrate"]["frame"].winfo_reqwidth())
+        min_width = self._sidebar.winfo_reqwidth() + 12 + right_width
+        self._canvas.itemconfigure(self._sf_window, width=max(1200, min_width, event.width),
                                    height=max(self._sf.winfo_reqheight(), event.height))
 
     def _add_readout(self, label, variable, x, y, anchor, key):
@@ -153,35 +170,33 @@ class NonNewtonianFrame(BaseAppFrame):
         panel.grid(row=1, column=1, sticky="ew")
         widgets = {"frame": panel}
         for col in range(3):
-            panel.columnconfigure(col, weight=1)
-        readings = ttk.Frame(panel)
-        readings.grid(row=0, column=0, sticky="nsew", padx=(0, 20))
-        ttk.Label(readings, text=f"Flow Setpoint ({loop.unit})").grid(row=0, column=0, sticky="w")
+            panel.columnconfigure(col, weight=1, uniform="flow_sections")
+        ttk.Label(panel, text=f"Flow Setpoint ({loop.unit})").grid(row=0, column=0, sticky="w")
         widgets["setpoint_spinbox"] = ttk.Spinbox(
-            readings, from_=loop.setpoint_min, to=loop.setpoint_max, increment=0.1,
+            panel, from_=loop.setpoint_min, to=loop.setpoint_max, increment=0.1,
             textvariable=loop.setpoint_var, width=10)
-        widgets["setpoint_spinbox"].grid(row=1, column=0, sticky="ew", pady=(4, 8))
-        ttk.Label(readings, text=f"{loop.label} ({loop.unit})").grid(row=2, column=0, sticky="w")
-        widgets["measured_entry"] = ttk.Entry(readings, textvariable=loop.measured_var, width=10, state="readonly")
-        widgets["measured_entry"].grid(row=3, column=0, sticky="ew", pady=4)
+        widgets["setpoint_spinbox"].grid(row=1, column=0, sticky="ew", padx=(0, 20), pady=(4, 8))
+        ttk.Label(panel, text=f"{loop.label} ({loop.unit})").grid(row=2, column=0, sticky="w")
+        widgets["measured_entry"] = ttk.Entry(panel, textvariable=loop.measured_var, width=10, state="readonly")
+        widgets["measured_entry"].grid(row=3, column=0, sticky="ew", padx=(0, 20), pady=4)
 
         manual = ttk.Frame(panel)
-        manual.grid(row=0, column=1, sticky="nsew", padx=(0, 20))
+        manual.grid(row=3, column=1, sticky="ew", padx=(0, 20), pady=4)
         manual.columnconfigure(0, weight=1)
         widgets["mode_switch"] = ttk.Checkbutton(
-            manual, text="Mode: MANUAL", style="Switch", variable=self._auto_var, command=self._toggle_mode)
-        widgets["mode_switch"].grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
-        ttk.Label(manual, text=f"{self._output_label} Command (%)").grid(row=1, column=0, columnspan=2, sticky="w")
+            panel, text="Mode: MANUAL", style="Switch", variable=self._auto_var, command=self._toggle_mode)
+        widgets["mode_switch"].grid(row=1, column=1, sticky="w", pady=(4, 8))
+        ttk.Label(panel, text=f"{self._output_label} Command (%)").grid(row=2, column=1, sticky="w")
         widgets["scale"] = ttk.Scale(manual, from_=0, to=100, variable=loop.valve_position)
-        widgets["scale"].grid(row=2, column=0, sticky="ew", pady=8)
+        widgets["scale"].grid(row=0, column=0, sticky="ew")
         widgets["manual_spinbox"] = ttk.Spinbox(
             manual, from_=0, to=100, textvariable=loop.rounded_valve_position, width=6)
-        widgets["manual_spinbox"].grid(row=2, column=1, padx=(8, 0))
+        widgets["manual_spinbox"].grid(row=0, column=1, padx=(8, 0))
         loop.valve_position.trace_add("write", self._sync_manual_slider)
         for event in ("<Return>", "<FocusOut>", "<<Increment>>", "<<Decrement>>"):
             widgets["manual_spinbox"].bind(event, self._commit_manual)
         tuning = ttk.Frame(panel)
-        tuning.grid(row=0, column=2, sticky="nsew")
+        tuning.grid(row=0, column=2, rowspan=4)
         for col, (key, label, var, low) in enumerate((
             ("Kc", f"Kc (V/{loop.unit})", loop.Kc_var, -100),
             ("Ti", "Ti (min)", loop.Ti_var, 0),
@@ -191,8 +206,6 @@ class NonNewtonianFrame(BaseAppFrame):
             sb = ttk.Spinbox(tuning, from_=low, to=100, increment=0.01, textvariable=var, width=7)
             sb.grid(row=1, column=col, padx=4, pady=4)
             widgets[f"{key}_spinbox"] = sb
-        ttk.Label(tuning, text="Initial tuning — commission on apparatus",
-                  wraplength=240).grid(row=2, column=0, columnspan=3, pady=8)
         self._loop_widgets["flowrate"] = widgets
 
     def _sync_manual_slider(self, *_):

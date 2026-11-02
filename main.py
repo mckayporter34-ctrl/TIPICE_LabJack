@@ -2,6 +2,10 @@
 # Entry point for the BYU TIPICE LabJack Control System.
 # Displays the Equipment Selection Dashboard and loads apparatus controllers.
 
+from core.runtime import require_python
+
+require_python()
+
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import os
@@ -367,7 +371,7 @@ class MainApplication(tk.Tk):
             return
 
         self.title(f"{config_module.SYSTEM_NAME} - Control Panel")
-        self.geometry("1450x800")  # Larger size for control panels
+        self.geometry(getattr(config_module, "WINDOW_SIZE", "1450x800"))
         
         # Maximize the window for all apparatus interfaces
         try:

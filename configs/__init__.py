@@ -47,6 +47,15 @@ AVAILABLE_CONFIGS = {
             {"name": "Unit #2 (Large Pipe)", "module": "configs.nonnewtonian_2"}
         ]
     },
+    "pump_cart": {
+        "development": True,
+        "title": "Pump Cart",
+        "subtitle": "Main Flow Control and Pressure Drops",
+        "image": "images/Pumpcart_main.jpg",
+        "active": True,
+        "accent": "#2f81f7",
+        "units": [{"name": "Unit #1", "module": "configs.pump_cart"}],
+    },
     "airflow": {
         "development": True,
         "title": "Air Flow Meters",

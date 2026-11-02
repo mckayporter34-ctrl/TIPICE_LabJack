@@ -81,7 +81,22 @@ def assert_diagram_alignment(test, frame):
     panel = frame._loop_widgets["flowrate"]["frame"]
     for label in labels(panel):
         test.assertNotIn("0% =", label.cget("text"))
+        test.assertNotIn("Initial tuning", label.cget("text"))
         test.assertNotEqual(str(label.cget("textvariable")), str(frame._control_message))
+    pressure = frame._readout_widgets["pressure_drop"]["entry"]
+    output = frame._readout_widgets["output"]["entry"]
+    test.assertAlmostEqual(pressure.winfo_rooty(), output.winfo_rooty(), delta=1)
+    widgets = frame._loop_widgets["flowrate"]
+    def center_y(widget):
+        return widget.winfo_rooty() + widget.winfo_height() / 2
+    test.assertAlmostEqual(center_y(widgets["mode_switch"]), center_y(widgets["setpoint_spinbox"]), delta=1)
+    for role in ("scale", "manual_spinbox"):
+        test.assertAlmostEqual(center_y(widgets[role]), center_y(widgets["measured_entry"]), delta=1)
+    tuning = widgets["Kc_spinbox"].master
+    x, _, width, _ = panel.grid_bbox(2, 0, 2, 3)
+    test.assertAlmostEqual(tuning.winfo_x() + tuning.winfo_width() / 2, x + width / 2, delta=1)
+    test.assertEqual(frame._apparatus_tile.cget("text"), "Apparatus Image")
+    test.assertTrue(frame._apparatus_tile.photo)
 
 
 def check_controls_available_with_pump_off(test):
