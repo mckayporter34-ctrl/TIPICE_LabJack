@@ -14,18 +14,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class RuntimeVersionTests(unittest.TestCase):
-    def test_accepts_python314_patch_releases(self):
-        for version in ((3, 14, 0), (3, 14, 2), (3, 14, 99)):
+    def test_accepts_python3912_and_newer_versions(self):
+        for version in ((3, 9, 12), (3, 9, 13), (3, 10, 0), (3, 14, 2)):
             with self.subTest(version=version), patch("sys.version_info", version):
                 require_python()
 
-    def test_rejects_other_minor_versions_with_migration_instructions(self):
-        for version in ((3, 9, 13), (3, 13, 9), (3, 15, 0), (4, 0, 0)):
+    def test_rejects_older_versions_with_migration_instructions(self):
+        for version in ((3, 8, 20), (3, 9, 6), (3, 9, 11)):
             with self.subTest(version=version), patch("sys.version_info", version):
                 with self.assertRaises(SystemExit) as result:
                     require_python()
                 message = str(result.exception)
-                self.assertIn("requires Python 3.14.x", message)
+                self.assertIn("requires Python 3.9.12 or newer", message)
                 self.assertIn("found Python " + ".".join(map(str, version)), message)
                 self.assertIn(".venv", message)
                 self.assertIn("setup.bat", message)
@@ -33,7 +33,7 @@ class RuntimeVersionTests(unittest.TestCase):
 
     def test_entrypoints_reject_wrong_python_before_loading_dependencies(self):
         for entrypoint in ("core/runtime.py", "main.py", "Historian/Historian.py"):
-            for version in ((3, 9, 13), (3, 15, 0)):
+            for version in ((3, 8, 20), (3, 9, 11)):
                 with self.subTest(entrypoint=entrypoint, version=version):
                     script = textwrap.dedent("""\
                         import builtins
@@ -57,7 +57,7 @@ class RuntimeVersionTests(unittest.TestCase):
                         capture_output=True, text=True, timeout=10,
                     )
                     self.assertEqual(result.returncode, 1, result.stderr)
-                    self.assertIn("requires Python 3.14.x", result.stderr)
+                    self.assertIn("requires Python 3.9.12 or newer", result.stderr)
                     self.assertNotIn("Traceback", result.stderr)
 
 

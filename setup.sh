@@ -11,7 +11,7 @@ if [ -e ".venv" ]; then
     fi
 else
     python_command=""
-    for candidate in python3.14 python3 python; do
+    for candidate in python3.9 python3 python; do
         if command -v "$candidate" >/dev/null 2>&1 &&
                 "$candidate" core/runtime.py >/dev/null 2>&1; then
             python_command="$candidate"
@@ -19,12 +19,12 @@ else
         fi
     done
     if [ -z "$python_command" ]; then
-        echo "Python 3.14.x is required. Install Python 3.14 from https://www.python.org/downloads/" >&2
-        echo "Make python3.14 available on PATH, then rerun ./setup.sh." >&2
+        echo "Python 3.9.12 or newer is required. Install Python from https://www.python.org/downloads/" >&2
+        echo "Make python3.9 or a newer python3 available on PATH, then rerun ./setup.sh." >&2
         exit 1
     fi
 
-    echo "Creating Python 3.14 virtual environment..."
+    echo "Creating Python virtual environment..."
     "$python_command" -m venv .venv
 fi
 

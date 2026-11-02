@@ -1,7 +1,11 @@
-Pillow
+# Image.Resampling is used by the GUI (introduced in Pillow 9.1).
+# On Python 3.9, use the last compatible Pillow and NumPy release families.
+Pillow>=9.1,<12; python_version < "3.10"
+Pillow>=9.1; python_version >= "3.10"
 labjack-ljm
 LabJackPython
-numpy
+numpy<2.1; python_version < "3.10"
+numpy; python_version >= "3.10"
 influxdb-client
 Flask
 requests

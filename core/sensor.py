@@ -7,7 +7,7 @@ import math
 import tkinter as tk
 from dataclasses import dataclass, field
 from time import monotonic
-from typing import Callable
+from typing import Callable, Optional
 from core.numeric_entry import finite_number
 
 
@@ -42,9 +42,9 @@ class Sensor:
     # Display variable and optional smoothing configuration.
     value_var: tk.StringVar = field(default_factory=tk.StringVar)
     filter_time_constant_s: float = 0.0
-    raw_value: float | None = field(default=None, init=False)
-    _filtered_value: float | None = field(default=None, init=False, repr=False)
-    _last_sample_time: float | None = field(default=None, init=False, repr=False)
+    raw_value: Optional[float] = field(default=None, init=False)
+    _filtered_value: Optional[float] = field(default=None, init=False, repr=False)
+    _last_sample_time: Optional[float] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
         self.filter_time_constant_s = finite_number(self.filter_time_constant_s)

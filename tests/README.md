@@ -1,7 +1,8 @@
 # Regression checks
 
-Run setup first and use the project's Python 3.14.x virtual environment for all
-checks. On Windows, replace `.venv/bin/python` below with
+Run setup first and use the project's virtual environment for all checks.
+The compatibility baseline is Python 3.9.12; newer Python versions are also
+accepted. On Windows, replace `.venv/bin/python` below with
 `.\.venv\Scripts\python.exe`.
 
 Run the controller-input and CSV-writer tests without a window server:
@@ -34,8 +35,8 @@ intentionally produce warning
 and error log output; the final unittest result determines success.
 Physical control performance and apparatus commissioning were not tested.
 
-`test_runtime.py` verifies that Python 3.14 patch releases are accepted, older
-and newer minor versions are rejected, and both application entry points reject
+`test_runtime.py` verifies that Python 3.9.12 and newer versions are accepted,
+older versions are rejected, and both application entry points reject
 an incompatible runtime before loading GUI or hardware dependencies.
 
 ## Airflow checks

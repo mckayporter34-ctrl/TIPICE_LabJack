@@ -31,21 +31,25 @@ Ensure the device is powered and connected (via USB or Ethernet) before launchin
 
 ## Setup & Running Instructions
 
-**Python 3.14.x is required on development and lab machines.** Any 3.14 patch
-release is accepted; older versions and Python 3.15 or newer are rejected.
-Install Python 3.14 from [python.org](https://www.python.org/downloads/) with
+**Python 3.9.12 is the lab compatibility baseline.** Python 3.9.12 and newer
+versions are accepted. Existing lab environments using Python 3.9.12 can be
+reused; there is no Python 3.14 requirement. New installations need Python with
 Tkinter support (included in the standard Windows and macOS installers).
-The `.python-version` file also selects 3.14 for compatible version managers.
+The `.python-version` file selects 3.9.12 for compatible version managers.
 
 The setup scripts create a virtual environment and install the dependencies
 listed in `requirements.txt`. Setup and launch both check the environment's
 Python version, and direct application startup checks it before importing GUI
 or LabJack dependencies. An incompatible environment is never upgraded in place.
+On Python 3.9, requirements select Pillow below 12 and NumPy below 2.1; pip
+selects compatible releases of the remaining dependencies using their Python
+version metadata.
 
 ### On Windows
 
-1. Install Python 3.14, including the Python launcher, or add Python 3.14 to PATH.
-   Setup prefers `py -3.14`, then checks `python3.14` and `python` on PATH.
+1. Use the installed Python 3.9.12 or newer. For a new installation, include the
+   Python launcher or add Python to PATH. Setup prefers `py -3.9`, then checks
+   `python3.9`, `python`, and `py -3`, accepting versions at or above 3.9.12.
 2. Double-click `setup.bat` (or run it in the command prompt).
 3. To start the GUI, double-click `run.bat`.
 
@@ -55,8 +59,8 @@ and Windows verification details are in [Windows GUI checks](docs/windows-gui-ch
 
 ### On macOS / Linux
 
-1. Install Python 3.14 with Tkinter and make `python3.14` available on PATH.
-   Setup also accepts `python3` or `python` if it resolves to Python 3.14.
+1. Use Python 3.9.12 or newer with Tkinter. Setup prefers `python3.9` on PATH,
+   then checks `python3` and `python` for a compatible version.
 2. Open a terminal in the project directory and run the setup script:
    ```bash
    ./setup.sh
@@ -69,8 +73,14 @@ and Windows verification details are in [Windows GUI checks](docs/windows-gui-ch
 ### Updating an existing lab installation
 
 Updating the source code does not change the Python version inside `.venv`.
-If setup or launch reports a version other than 3.14, close the application,
-install Python 3.14, and rename the old environment before running setup again.
+If `.venv` already uses Python 3.9.12 or newer, run setup again to install the
+current requirements, then launch normally. A Python 3.14 environment remains
+compatible and does not need rebuilding.
+
+If the environment is older than 3.9.12 or you want to switch a Python 3.14
+environment back to the lab's Python 3.9.12, close the application and rename
+the old environment first. Ensure Python 3.9.12 is installed and selected by
+`py -3.9` (Windows) or `python3.9` (macOS/Linux), then run setup again.
 For example, from the project directory in Windows PowerShell:
 
 ```powershell
@@ -90,10 +100,10 @@ mv .venv .venv-old
 ```
 
 Use `.venv-old-2`, etc. if `.venv-old` already exists; these backups are ignored
-by Git. The version check
-should report `Python 3.14.x`. Only rename `.venv`; configurations, local
-credentials, and recorded data stay in their existing locations. Run setup again
-when dependencies change. A compatible environment is reused.
+by Git. The version check should report Python 3.9.12 or newer. Only rename
+`.venv`; configurations, local credentials, and recorded data stay in their
+existing locations. Run setup again when dependencies change. A compatible
+environment is reused.
 
 ## Legacy Code
 
@@ -159,6 +169,6 @@ repository root. This file is ignored by Git. `INFLUX_URL`, `INFLUX_ORG`, and
 Without a token or the optional InfluxDB library, local CSV logging still works.
 
 The standalone service is in `Historian/Historian.py` and uses the same settings.
-It also requires Python 3.14.x; run it with the project's virtual-environment
+It also accepts Python 3.9.12 or newer; run it with the project's virtual-environment
 Python after setup. Credentials and local recording files are excluded from
 commits.

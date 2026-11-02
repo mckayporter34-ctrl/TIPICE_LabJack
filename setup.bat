@@ -5,33 +5,41 @@ cd /d "%~dp0" || exit /b 1
 
 if exist ".venv" goto :existing_env
 
-REM Prefer the Windows Python launcher so another Python on PATH is not used.
-py -3.14 core\runtime.py >nul 2>&1
+REM Prefer the lab's Python 3.9, while accepting newer compatible installations.
+py -3.9 core\runtime.py >nul 2>&1
 if not errorlevel 1 goto :create_with_py
-python3.14 core\runtime.py >nul 2>&1
-if not errorlevel 1 goto :create_with_python314
+python3.9 core\runtime.py >nul 2>&1
+if not errorlevel 1 goto :create_with_python39
 python core\runtime.py >nul 2>&1
 if not errorlevel 1 goto :create_with_python
+py -3 core\runtime.py >nul 2>&1
+if not errorlevel 1 goto :create_with_py3
 
-echo Python 3.14.x is required. Install Python 3.14 from https://www.python.org/downloads/
-echo Include the Python launcher or add Python 3.14 to PATH, then rerun setup.bat.
+echo Python 3.9.12 or newer is required. Install Python from https://www.python.org/downloads/
+echo Include the Python launcher or add Python to PATH, then rerun setup.bat.
 goto :failed
 
 :create_with_py
-echo Creating Python 3.14 virtual environment...
-py -3.14 -m venv .venv
+echo Creating Python 3.9 virtual environment...
+py -3.9 -m venv .venv
 if errorlevel 1 goto :failed
 goto :check_env
 
-:create_with_python314
-echo Creating Python 3.14 virtual environment...
-python3.14 -m venv .venv
+:create_with_python39
+echo Creating Python 3.9 virtual environment...
+python3.9 -m venv .venv
 if errorlevel 1 goto :failed
 goto :check_env
 
 :create_with_python
-echo Creating Python 3.14 virtual environment...
+echo Creating Python virtual environment...
 python -m venv .venv
+if errorlevel 1 goto :failed
+goto :check_env
+
+:create_with_py3
+echo Creating Python virtual environment...
+py -3 -m venv .venv
 if errorlevel 1 goto :failed
 goto :check_env
 

@@ -5,8 +5,8 @@ P&ID, logo, and apparatus-image paths resolve relative to the configuration
 files, independent of the launch directory. `setup.bat` and `run.bat` switch to
 the project directory and invoke its virtual environment directly; setup stops
 on installation errors and the launcher reports a missing environment. Both
-require Python 3.14.x. Setup selects Python 3.14 explicitly when creating an
-environment and refuses an existing environment with another Python version.
+accept Python 3.9.12 or newer. Setup prefers Python 3.9 when creating an
+environment and reuses an existing compatible environment, including Python 3.14.
 See [installation migration instructions](../README.md#updating-an-existing-lab-installation)
 to rebuild an older `.venv`.
 
@@ -38,14 +38,21 @@ These scaling checks were run on macOS. They simulate larger font metrics;
 they do not establish native Windows rendering, Windows display-scale behavior,
 batch-file execution, or LJM driver operation.
 
+The Python 3.9.12 compatibility update was checked in a fresh environment:
+requirements installed successfully, all active application modules and the
+historian imported, and all 64 non-desktop tests passed (31 desktop tests
+skipped). The portable macOS Python 3.9.12 runtime embeds Tk in a form that
+Pillow's Tk extension cannot load, so its desktop tests could not complete.
+Run the desktop suite on the lab's standard Windows Python 3.9.12 installation.
+
 ## Native Windows verification before lab rollout
 
-1. Confirm that setup and launch reject an older `.venv` with Python 3.14
+1. Confirm that setup and launch reject a `.venv` older than Python 3.9.12 with
    installation/rebuild instructions before installing packages or opening the
-   GUI. With Python 3.14 installed and the old `.venv` renamed, run setup and
-   launch from a folder containing spaces, and launch again using a shortcut
+   GUI. With Python 3.9.12 installed and any incompatible `.venv` renamed, run
+   setup and launch from a folder containing spaces, and launch again using a shortcut
    whose working directory is elsewhere. Verify
-   `.\.venv\Scripts\python.exe --version` reports Python 3.14.x.
+   `.\.venv\Scripts\python.exe --version` reports Python 3.9.12 or newer.
 2. Open Air Flow Meters and both Non-Newtonian units in Development. Inspect
    them at the lab monitor's normal resolution and at 100%, 125%, and 150%
    Windows display scaling, restarting the application after each change.

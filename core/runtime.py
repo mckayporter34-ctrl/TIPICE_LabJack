@@ -1,22 +1,22 @@
 """Python version check shared by setup scripts and application entry points.
 
 Keep this module free of application dependencies and newer Python syntax so an
-older interpreter can display the upgrade instructions before importing the GUI.
+older interpreter can display the version instructions before importing the GUI.
 """
 
 import sys
 
 
-REQUIRED_PYTHON = (3, 14)
+MINIMUM_PYTHON = (3, 9, 12)
 
 
 def require_python():
-    """Accept any Python 3.14 patch release and reject other minor versions."""
-    if sys.version_info[:2] != REQUIRED_PYTHON:
+    """Support the lab's Python 3.9.12 baseline and newer Python versions."""
+    if sys.version_info[:3] < MINIMUM_PYTHON:
         current = ".".join(str(part) for part in sys.version_info[:3])
         raise SystemExit(
-            "TIPICE LabJack requires Python 3.14.x; found Python {}.\n"
-            "Install Python 3.14. If .venv already exists, rename it to an unused "
+            "TIPICE LabJack requires Python 3.9.12 or newer; found Python {}.\n"
+            "Install Python 3.9.12 or newer. If .venv already exists, rename it to an unused "
             "backup name, then run setup.bat (Windows) or ./setup.sh (macOS/Linux)."
             .format(current)
         )
