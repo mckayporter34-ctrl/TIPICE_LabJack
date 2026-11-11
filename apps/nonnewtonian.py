@@ -79,6 +79,7 @@ class NonNewtonianFrame(BaseAppFrame):
                 ttk.Spinbox(row, from_=0.1, to=100, textvariable=var, width=7).pack(side="right")
             else:
                 ttk.Entry(row, textvariable=var, state="readonly", width=7).pack(side="right")
+        self._build_logging_options(log).pack(fill="x")
         self._theme_btn = ttk.Button(sidebar, text="Dark Mode", command=self._toggle_theme)
         self._theme_btn.pack(fill="x")
         self._apparatus_tile = build_apparatus_tile(sidebar, self.config.APPARATUS_IMAGE)

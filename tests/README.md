@@ -112,9 +112,12 @@ run without a window server, lab hardware, or a real device-manager API.
 ## Pump Cart #1
 
 `test_pump_cart.py` covers the development-only unit #1 registration, the single
-main-flow PID, workbook channel/range mapping, Type K temperature on AIN0,
+main-flow PID, workbook channel/range mapping, Type K temperature through the
+InAmp module on AIN1 with cold-junction failure/recovery checks,
 TODO calibration handling, complete fit without scrollbars at 1366×768 and
-1320×700 in Forest light/dark and standard ttk, all nine ΔP readouts, separate
-manual pump speed/valve commands, flow animation paths, main versus bypass
-feedback, CSV contents and shutdown/fault behavior. Hardware and historian I/O
+1320×700 in Forest light/dark and standard ttk, all eight ΔP readouts, separate
+manual pump speed/valve commands, export-resolution-independent layout,
+flow-dash corners and open ends, main versus bypass
+feedback, AIN7 pump pressure and calibrated AIN4 motor power in watts,
+CSV contents and shutdown/fault behavior. Hardware and historian I/O
 are fake. See [Pump Cart notes](../docs/pump-cart.md).

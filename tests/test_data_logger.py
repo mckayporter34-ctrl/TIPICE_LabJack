@@ -1,6 +1,8 @@
 import csv
 import math
+from contextlib import redirect_stdout
 from datetime import datetime
+from io import StringIO
 import tempfile
 import threading
 import unittest
@@ -104,14 +106,42 @@ class DataLoggerTests(unittest.TestCase):
     def test_restart_uses_unique_files_and_never_duplicates_rows(self):
         logger = self.logger({"Value": lambda: 1}, ("Value",))
         files = []
-        for _ in range(5):
-            logger.start()
-            logger.start()
-            files.append(logger.filepath)
-            logger.stop()
-            self.assertEqual(len(self.rows(logger)), 1)
-            self.assertFalse(logger._thread.is_alive())
+        with redirect_stdout(StringIO()) as terminal:
+            for _ in range(5):
+                logger.start()
+                logger.start()
+                files.append(logger.filepath)
+                logger.stop()
+                logger.stop()
+                self.assertEqual(len(self.rows(logger)), 1)
+                self.assertFalse(logger._thread.is_alive())
         self.assertEqual(len(set(files)), 5)
+        self.assertEqual(terminal.getvalue().splitlines(), [f"Data saved to {path}" for path in files])
+
+    def test_stop_callback_runs_once_after_the_csv_is_closed(self):
+        logger = self.logger({"Value": lambda: 1})
+        real_writer = csv.writer
+        streams = []
+        saved = []
+
+        def record_stream(stream):
+            streams.append(stream)
+            return real_writer(stream)
+
+        def on_saved(path):
+            saved.append((path, streams[0].closed, self.rows(logger)))
+
+        with patch("core.data_logger.csv.writer", side_effect=record_stream):
+            logger.start()
+        self.scheduler.run(logger._capture_id)
+        logger.stop(on_saved=on_saved)
+        logger.stop(on_saved=on_saved)
+
+        self.assertEqual(len(saved), 1)
+        path, closed, rows = saved[0]
+        self.assertEqual(path, logger.filepath)
+        self.assertTrue(closed)
+        self.assertEqual([row["Value"] for row in rows], ["1", "1"])
 
     def test_interval_validation(self):
         logger = self.logger({})
@@ -224,7 +254,9 @@ class DataLoggerTests(unittest.TestCase):
         self.assertFalse(logger.is_logging)
         self.assertEqual(len(errors), 1)
         self.assertIn("disk full", errors[0])
-        logger.stop()
+        on_saved = Mock()
+        logger.stop(on_saved=on_saved)
+        on_saved.assert_not_called()
         logger.start()
         logger.stop()
         self.assertEqual(len(self.rows(logger)), 1)

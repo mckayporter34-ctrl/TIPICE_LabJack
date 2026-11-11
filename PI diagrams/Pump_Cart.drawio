@@ -1,22 +1,10 @@
 <mxfile host="Electron">
   <diagram name="Page-1" id="Vr_FnRvZVWpFcsZ4QvWb">
-    <mxGraphModel dx="600" dy="552" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="100000" pageHeight="100000" math="0" shadow="0">
+    <mxGraphModel dx="542" dy="462" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="100000" pageHeight="100000" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="mEW1dylihks7n2kpEkty-43" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;rounded=0;startArrow=oval;startFill=1;startSize=4;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="843" y="549" as="sourcePoint" />
-            <mxPoint x="843" y="519" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="mEW1dylihks7n2kpEkty-41" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;rounded=0;startArrow=oval;startFill=1;startSize=4;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="949" y="360" as="sourcePoint" />
-            <mxPoint x="949" y="390" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="mEW1dylihks7n2kpEkty-2" parent="1" style="shape=mxgraph.pid.vessels.bunker_(conical_bottom);html=1;pointerEvents=1;align=center;verticalLabelPosition=bottom;verticalAlign=top;dashed=0;" value="" vertex="1">
+        <mxCell id="mEW1dylihks7n2kpEkty-2" parent="1" style="shape=mxgraph.pid.vessels.bunker_(conical_bottom);html=1;pointerEvents=1;align=center;verticalLabelPosition=bottom;verticalAlign=top;dashed=0;fillStyle=auto;fillColor=#FFFFFF;" value="" vertex="1">
           <mxGeometry height="100" width="90" x="750" y="380" as="geometry" />
         </mxCell>
         <mxCell id="mEW1dylihks7n2kpEkty-3" parent="1" style="shape=mxgraph.pid.pumps.centrifugal_pump_3;html=1;pointerEvents=1;align=center;verticalLabelPosition=bottom;verticalAlign=top;dashed=0;" value="" vertex="1">
@@ -156,18 +144,6 @@
             </Array>
             <mxPoint x="830.01" y="374.77" as="sourcePoint" />
             <mxPoint x="830" y="385" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="mEW1dylihks7n2kpEkty-40" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;rounded=0;startArrow=oval;startFill=1;startSize=4;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="867" y="330" as="sourcePoint" />
-            <mxPoint x="867" y="290" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="mEW1dylihks7n2kpEkty-44" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;rounded=0;startArrow=oval;startFill=1;startSize=4;" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="880" y="455" as="sourcePoint" />
-            <mxPoint x="910" y="455" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="mEW1dylihks7n2kpEkty-48" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;" value="">

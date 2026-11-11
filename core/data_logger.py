@@ -87,6 +87,7 @@ class DataLogger:
             raise
 
         self._queue = Queue()
+        self._on_saved = None
         self._row_count = 0
         self.last_error = None
         self.source_errors = {}
@@ -106,7 +107,9 @@ class DataLogger:
         self._capture_row()
         self._sync_status()
 
-    def stop(self):
+    def stop(self, *, on_saved=None):
+        """Stop capture. The writer calls on_saved with the path after closing the CSV."""
+        was_logging = self._is_logging
         self._is_logging = False
         for attr in ("_capture_id", "_status_id"):
             callback_id = getattr(self, attr)
@@ -114,8 +117,10 @@ class DataLogger:
                 self._scheduler.after_cancel(callback_id)
                 setattr(self, attr, None)
         if self._thread is not None and self._thread.is_alive():
-            # FIFO sentinel lets the writer finish rows already captured.
-            self._queue.put(None)
+            if was_logging:
+                self._on_saved = on_saved
+                # FIFO sentinel lets the writer finish rows already captured.
+                self._queue.put(None)
             self._thread.join(timeout=1.0)
         self._count_var.set(self._row_count)
 
@@ -184,6 +189,10 @@ class DataLogger:
         except Exception as exc:
             self.last_error = f"Could not save data to {self.filepath}: {exc}"
             logging.exception("DataLogger file write failed")
+        else:
+            print(f"Data saved to {self.filepath}", flush=True)
+            if self._on_saved is not None:
+                self._on_saved(self.filepath)
         finally:
             self._is_logging = False
             if influx_queue is not None:

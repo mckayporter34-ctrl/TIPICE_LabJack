@@ -92,6 +92,10 @@ class LabJackInterface:
             # Special registers simulation
             if register == "TEMPERATURE_DEVICE_K":
                 return 273.15 + 23.5 + random.uniform(-0.1, 0.1)  # Room temp in Kelvin
+            if register in ("DIO0_EF_READ_A_AND_RESET", "DIO1_EF_READ_A_AND_RESET"):
+                # Frequency In returns integer Clock0 ticks, not an analog voltage.
+                # ~125 Hz at the pump cart's 80 MHz clock simulates ~10 GPM (K=750).
+                return round(80_000_000 / random.uniform(120, 130))
             
             # Simulated analog input voltages typically range from 1V to 3.5V
             return random.uniform(1.2, 3.4)

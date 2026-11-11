@@ -48,9 +48,6 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
 
         super().__init__(parent, config, daq, on_back)
 
-        # Trace changes to Experiment ID to update logging button state dynamically
-        self._experiment_id_var.trace_add("write", self._validate_experiment_id)
-
         # Sync air valve percent variable on setpoint write
         self._air_setpoint_var.trace_add("write", lambda *a: self._sync_air_valve_percent())
         
@@ -124,10 +121,9 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         ctrl = ttk.LabelFrame(col, text="Controls", padding=(30, 15))
         ctrl.pack(fill="x", pady=(0, 8))
 
-        # Student ID Entry Box
         id_frame = ttk.Frame(ctrl)
         id_frame.pack(fill="x", pady=(4, 2))
-        ttk.Label(id_frame, text="Student ID:").pack(side="left")
+        ttk.Label(id_frame, text="BYU Net ID:").pack(side="left")
         ttk.Entry(id_frame, textvariable=self.student_id_var, width=12).pack(side="left", padx=5)
 
         self._connect_dd = ttk.OptionMenu(
@@ -190,6 +186,7 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
         r2.pack(fill="x", pady=2)
         ttk.Label(r2, text="Count").pack(side="left")
         ttk.Entry(r2, textvariable=self._data_point_count, state="disabled", width=6).pack(side="right")
+        self._build_logging_options(log).pack(fill="x")
 
         # Apparatus Image
         img_f = ttk.LabelFrame(col, text="Apparatus Image", padding=10)
@@ -536,18 +533,6 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
 
         return widgets
 
-    def _validate_experiment_id(self, *args):
-        """Enable logging button only if Main Power is ON and Experiment ID is valid."""
-        if not getattr(self, "_main_power_on", False):
-            return
-        
-        exp_id = self._experiment_id_var.get().strip()
-        if exp_id and exp_id != "Group1_Run1":
-            self._log_btn.configure(state="normal")
-        else:
-            if not self.logger.is_logging:
-                self._log_btn.configure(state="disabled")
-
     def _set_initial_states(self):
         self._power_sw.configure(state="disabled")
         self._log_btn.configure(state="disabled")
@@ -617,22 +602,15 @@ class PackedColumnsRedesignFrame(BaseAppFrame):
 
     def _enable_powered_controls(self):
         super()._enable_powered_controls()
-        self._validate_experiment_id()
         self._col1_radio.configure(state="normal")
         self._col2_radio.configure(state="normal")
         self._set_loop_panel_states(True)
 
     def _disable_powered_controls(self):
         super()._disable_powered_controls()
-        self._log_btn.configure(state="disabled")
         self._col1_radio.configure(state="disabled")
         self._col2_radio.configure(state="disabled")
         self._set_loop_panel_states(False)
-        if self.logger.is_logging:
-            self.logger.stop()
-            self._logging_text_var.set("Start Logging")
-            self._experiment_id_entry.config(state="normal")
-            self._data_point_count.set(0)
 
     def _on_connection_choice(self, choice):
         # 1. Ask the historian for permission first

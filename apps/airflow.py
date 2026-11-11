@@ -292,6 +292,7 @@ class AirflowFrame(BaseAppFrame):
                 ttk.Spinbox(row, from_=0.1, to=100, textvariable=var, width=7).pack(side="right")
             else:
                 ttk.Entry(row, textvariable=var, state="readonly", width=7).pack(side="right")
+        self._build_logging_options(panel).pack(fill="x")
 
     def _toggle_theme(self):
         self._theme_dark = not self._theme_dark

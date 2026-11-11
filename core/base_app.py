@@ -2,9 +2,13 @@
 # Unified Base Application frame that dynamically loads and displays
 # an apparatus configuration.
 
+import logging
+import os
+import subprocess
+import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
-import os
+
 import requests
 
 try:
@@ -29,6 +33,7 @@ from core.safety import SafetyState
 
 UPDATE_INTERVAL_MS = 500
 DT_MINUTES = UPDATE_INTERVAL_MS / 1000 / 60
+DEFAULT_EXPERIMENT_ID = "Group1_Run1"
 
 # Mapping SYSTEM_NAME to exact InfluxDB unit_op tags
 UNIT_OP_MAP = {
@@ -42,6 +47,19 @@ UNIT_OP_MAP = {
     "Non-Newtonian Fluids #1": "NNF1",
     "Non-Newtonian Fluids #2": "NNF2",
 }
+
+
+def _open_log_folder(filepath):
+    """Launch the file manager from the writer thread after the CSV is closed."""
+    folder = os.path.dirname(filepath)
+    try:
+        if sys.platform == "win32":
+            os.startfile(folder)
+        else:
+            command = "open" if sys.platform == "darwin" else "xdg-open"
+            subprocess.Popen([command, folder])
+    except OSError as exc:
+        logging.warning("Could not open data folder %s: %s", folder, exc)
 
 
 class BaseAppFrame(ttk.Frame):
@@ -66,15 +84,14 @@ class BaseAppFrame(ttk.Frame):
         self._logging_text_var = tk.StringVar(value="Start Logging")
         self._log_interval_var = tk.DoubleVar(value=1.0)
         self._data_point_count = tk.IntVar(value=0)
-        self._experiment_id_var = tk.StringVar(value="Group1_Run1")
+        self._experiment_id_var = tk.StringVar(value=DEFAULT_EXPERIMENT_ID)
+        self._open_data_after_run_var = tk.BooleanVar(self, value=False)
+        self._logging_reminder_var = tk.StringVar(self)
         self.student_id_var = tk.StringVar(value="")
         
         # Determine Unit Op name for the API & InfluxDB
         self._unit_op = UNIT_OP_MAP.get(self.config.SYSTEM_NAME, "DefaultUnit")
         
-        # Trace changes to Experiment ID to update logging button state dynamically
-        self._experiment_id_var.trace_add("write", self._validate_experiment_id)
-
         # Dynamic switches vars
         self._switch_vars = {}
         self._switch_widgets = []
@@ -88,6 +105,8 @@ class BaseAppFrame(ttk.Frame):
         self._install_numeric_validation()
         self._set_initial_states()
         self._build_logger()
+        self._experiment_id_var.trace_add("write", self._on_experiment_id_changed)
+        self._update_logging_reminder()
 
         # Start periodic updates
         self._polling = True
@@ -103,7 +122,7 @@ class BaseAppFrame(ttk.Frame):
 
         student_id = self.student_id_var.get().strip()
         if not student_id:
-            messagebox.showwarning("Missing ID", "Please enter your Student ID before connecting.")
+            messagebox.showwarning("Missing ID", "Please enter your BYU Net ID before connecting.")
             return False
             
         try:
@@ -296,11 +315,32 @@ class BaseAppFrame(ttk.Frame):
         visit(self)
 
     def _on_logging_error(self, error):
+        self._reset_logging_controls()
+        messagebox.showerror("Data Logging Error", error, parent=self.winfo_toplevel())
+
+    def _reset_logging_controls(self):
         self._logging_text_var.set("Start Logging")
         self._toggle_logging_btn.state(["!selected"])
         if hasattr(self, "_experiment_id_entry"):
             self._experiment_id_entry.config(state="normal")
-        messagebox.showerror("Data Logging Error", error, parent=self.winfo_toplevel())
+        self._update_logging_reminder()
+
+    def _stop_logging(self):
+        on_saved = _open_log_folder if self._open_data_after_run_var.get() else None
+        self.logger.stop(on_saved=on_saved)
+        self._reset_logging_controls()
+        self._data_point_count.set(0)
+
+    def _on_experiment_id_changed(self, *_args):
+        self._validate_experiment_id()
+        self._update_logging_reminder()
+
+    def _update_logging_reminder(self):
+        exp_id = self._experiment_id_var.get().strip()
+        reminder = ""
+        if exp_id in ("", DEFAULT_EXPERIMENT_ID) and not self.logger.is_logging:
+            reminder = "Logging is off. Set your Experiment ID."
+        self._logging_reminder_var.set(reminder)
 
     # ══════════════════════════════════════════════════════════════════
     # GUI construction
@@ -409,7 +449,7 @@ class BaseAppFrame(ttk.Frame):
         if getattr(self.config, "DEVICE_MANAGER_ENABLED", True):
             id_frame = ttk.Frame(f)
             id_frame.grid(row=0, column=0, padx=5, pady=(5, 5), sticky="nsew")
-            ttk.Label(id_frame, text="Student ID:").pack(side="left", padx=(0, 5))
+            ttk.Label(id_frame, text="BYU Net ID:").pack(side="left", padx=(0, 5))
             ttk.Entry(id_frame, textvariable=self.student_id_var, width=12).pack(side="left")
 
         self._connect_dropdown = ttk.OptionMenu(
@@ -530,6 +570,15 @@ class BaseAppFrame(ttk.Frame):
             f, textvariable=self._data_point_count, state="disabled", width=8
         )
         self._data_point_entry.grid(row=5, column=1, padx=5, pady=(0, 5), sticky="ew")
+        self._build_logging_options(f).grid(row=6, column=0, columnspan=2, sticky="ew")
+
+    def _build_logging_options(self, parent):
+        options = ttk.Frame(parent)
+        ttk.Checkbutton(options, text="Open data after run",
+                        variable=self._open_data_after_run_var).pack(anchor="w")
+        ttk.Label(options, textvariable=self._logging_reminder_var,
+                  wraplength=220, justify="left").pack(anchor="w")
+        return options
 
     def _build_sensor_panel(self, parent, sp_cfg):
         title = sp_cfg["title"]
@@ -614,7 +663,7 @@ class BaseAppFrame(ttk.Frame):
             return
         
         exp_id = self._experiment_id_var.get().strip()
-        if exp_id and exp_id != "Group1_Run1":
+        if exp_id and exp_id != DEFAULT_EXPERIMENT_ID:
             self._toggle_logging_btn.configure(state="normal")
         else:
             if not self.logger.is_logging:
@@ -645,11 +694,7 @@ class BaseAppFrame(ttk.Frame):
             disable_loop_widgets(kw)
 
         if self.logger.is_logging:
-            self.logger.stop()
-            self._logging_text_var.set("Start Logging")
-            if hasattr(self, "_experiment_id_entry"):
-                self._experiment_id_entry.config(state="normal")
-            self._data_point_count.set(0)
+            self._stop_logging()
 
         for key, var in self._switch_vars.items():
             var.set(False)
@@ -796,15 +841,13 @@ class BaseAppFrame(ttk.Frame):
             except Exception as exc:
                 self._on_logging_error(str(exc))
                 return
-            self._logging_text_var.set("Stop Logging")
-            if hasattr(self, "_experiment_id_entry"):
-                self._experiment_id_entry.config(state="disabled")
+            if self.logger.is_logging:
+                self._logging_text_var.set("Stop Logging")
+                if hasattr(self, "_experiment_id_entry"):
+                    self._experiment_id_entry.config(state="disabled")
+                self._update_logging_reminder()
         else:
-            self.logger.stop()
-            self._logging_text_var.set("Start Logging")
-            if hasattr(self, "_experiment_id_entry"):
-                self._experiment_id_entry.config(state="normal")
-            self._data_point_count.set(0)
+            self._stop_logging()
 
     def _on_mousewheel(self, event):
         if event.delta in (1, -1):
@@ -919,5 +962,5 @@ class BaseAppFrame(ttk.Frame):
     def destroy(self):
         self._polling = False
         if hasattr(self, "logger"):
-            self.logger.stop()
+            self._stop_logging()
         super().destroy()

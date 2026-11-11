@@ -281,6 +281,44 @@ class AppUITests(unittest.TestCase):
         self.assertEqual(frame._logging_text_var.get(), "Start Logging")
         self.assertTrue(self.showerror.called)
 
+    def test_open_data_option_and_default_experiment_id_reminder(self):
+        frame = self.frame("shell_tube_hx_1")
+        frame._main_power_on = True
+        frame._enable_powered_controls()
+        button = frame._toggle_logging_btn
+        checkbox = next(widget for child in button.master.winfo_children()
+                        for widget in child.winfo_children()
+                        if isinstance(widget, ttk.Checkbutton) and widget.cget("text") == "Open data after run")
+        default_id = frame._experiment_id_var.get()
+        reminder = frame._logging_reminder_var
+        self.assertIn("Logging is off", reminder.get())
+        self.assertTrue(button.instate(["disabled"]))
+
+        frame._experiment_id_var.set("Group2_Run1")
+        self.assertEqual(reminder.get(), "")
+        self.assertTrue(checkbox.instate(["!selected"]))
+        with patch("core.base_app._open_log_folder") as open_folder:
+            button.invoke()
+            self.assertTrue(frame.logger.is_logging)
+            button.invoke()
+            open_folder.assert_not_called()
+
+            checkbox.invoke()
+            button.invoke()
+            self.assertTrue(frame.logger.is_logging)
+            button.invoke()
+            open_folder.assert_called_once_with(frame.logger.filepath)
+            open_folder.reset_mock()
+
+            button.invoke()
+            self.assertTrue(frame.logger.is_logging)
+            frame._disable_powered_controls()
+            open_folder.assert_called_once_with(frame.logger.filepath)
+            frame._experiment_id_var.set(default_id)
+            self.assertIn("Logging is off", reminder.get())
+            self.close_frame(frame)
+            open_folder.assert_called_once()
+
     def test_destroy_stops_logging_and_cancels_logger_callbacks(self):
         frame = self.frame("shell_tube_hx_1")
         frame.logger.start()
