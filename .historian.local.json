@@ -1,0 +1,4 @@
+{
+  "HISTORIAN_API_URL": "http://10.5.112.172:5000",
+  "HISTORIAN_WRITE_MODE": "relay"
+}

@@ -35,8 +35,9 @@ are retained.
 
 ## Switch a managed desktop to relay mode
 
-After the Pi is ready, merge these keys into that PC's ignored
-`.historian.local.json` (preserve other existing keys):
+The repository includes `.historian.local.json` with these nonsecret settings.
+Updating or copying the complete repository enables relay mode on managed
+desktops automatically after restarting the app:
 
 ```json
 {
@@ -45,13 +46,13 @@ After the Pi is ready, merge these keys into that PC's ignored
 }
 ```
 
-Environment variables with those names take precedence. Restart the desktop,
+Keep credentials out of this tracked file. Environment variables with those names take precedence. Restart the desktop,
 check out the apparatus with a roster ID, and start a short logging run. The
 database upload count should increase and the new UUID-suffixed run should
 appear in Grafana. Relay desktops do not require an InfluxDB token. Their
 checkout/release/status requests now use the configured API URL too.
 
-Direct database writing remains the default for staged rollout. Development
+The configuration loader defaults to direct mode only if this setting is absent. Development
 apparatuses bypass checkout and continue to use direct mode; they still need
 their existing database settings. No automatic fallback from relay to direct
 is allowed when a session is rejected. To roll back transport on a managed

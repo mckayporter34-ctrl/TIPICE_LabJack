@@ -36,7 +36,6 @@ Thumbs.db
 Archive/
 Development/
 *_LoggedData/
-.historian.local.json
 students.txt
 Historian/private-deployment/
 *.recording.jsonl.gz

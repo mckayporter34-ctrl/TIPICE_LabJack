@@ -176,18 +176,21 @@ assignments, operation and initial tuning settings.
 
 ## Historian logging
 
-Local CSV logging also supports the InfluxDB historian and captures the Experiment
-ID with an `HHMMSS` suffix as the run label when logging starts, for example
-`Group1_Run1_143015`. A blank ID uses `Unnamed_Run_HHMMSS`. The label stays fixed
-throughout that logging session. Network writes run separately so a
-historian outage does not stop local CSV capture.
+Local CSV logging also supports the InfluxDB historian. Each run captures the
+Experiment ID with a date, time, and UUID suffix. The run label stays fixed
+throughout the logging session. Network writes run separately so a historian
+outage does not stop local CSV capture.
 
-Set `INFLUX_TOKEN` in the environment or in a `.historian.local.json` file in the
-repository root. This file is ignored by Git. `INFLUX_URL`, `INFLUX_ORG`, and
-`INFLUX_BUCKET` can be set the same way; environment values take precedence.
-Without a token or the optional InfluxDB library, local CSV logging still works.
+The tracked `.historian.local.json` enables relay mode and specifies the Pi API
+address. Managed desktop apps send readings through the Pi and do not need an
+InfluxDB token. Keep credentials out of this tracked file. Environment variables
+override its settings.
 
-The standalone service is in `Historian/Historian.py` and uses the same settings.
-It also accepts Python 3.9.12 or newer; run it with the project's virtual-environment
-Python after setup. Credentials and local recording files are excluded from
-commits.
+For direct-mode clients and the repository's `Historian/Historian.py`, set
+`INFLUX_TOKEN` privately in the environment. `INFLUX_URL`, `INFLUX_ORG`, and
+`INFLUX_BUCKET` also accept environment overrides. Development apparatuses use
+direct mode and require their own database credentials for uploads. Local CSV
+logging continues when database uploads are unavailable.
+
+See [historian relay deployment](docs/historian-relay.md) for the separate Pi
+service and desktop rollout instructions.
