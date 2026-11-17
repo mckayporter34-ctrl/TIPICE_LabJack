@@ -410,6 +410,7 @@ class NonNewtonian2TemperatureTests(unittest.TestCase):
         self.assertAlmostEqual(temperature.get_raw_value(), 35)
         self.assertEqual(self.daq.reads.count("AIN0"), 2)
         self.assertEqual(self.converter.call_count, 2)
+        self.app.student_id_var = SimpleNamespace(get=lambda: "")
         with patch("core.data_logger.INFLUX_TOKEN", ""):
             self.app._build_logger()
             logger = self.app.logger

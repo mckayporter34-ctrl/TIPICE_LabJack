@@ -24,3 +24,6 @@ INFLUX_URL = _setting("INFLUX_URL", "http://10.5.112.172:8086")
 INFLUX_TOKEN = _setting("INFLUX_TOKEN")
 INFLUX_ORG = _setting("INFLUX_ORG", "BYUChemE")
 INFLUX_BUCKET = _setting("INFLUX_BUCKET", "UOLab")
+HISTORIAN_API_URL = _setting("HISTORIAN_API_URL", "http://10.5.112.172:5000").rstrip("/")
+# Deploy the updated Pi service before opting desktop PCs into relay mode.
+HISTORIAN_WRITE_MODE = _setting("HISTORIAN_WRITE_MODE", "direct").lower()

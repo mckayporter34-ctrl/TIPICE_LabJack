@@ -3,8 +3,10 @@ import math
 from contextlib import redirect_stdout
 from datetime import datetime
 from io import StringIO
+from queue import Queue
 import tempfile
 import threading
+import requests
 import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
@@ -41,6 +43,10 @@ class Count:
 
 class DataLoggerTests(unittest.TestCase):
     def setUp(self):
+        # Keep tests independent of the desktop's private transport setting.
+        mode = patch("core.data_logger.HISTORIAN_WRITE_MODE", "direct")
+        mode.start()
+        self.addCleanup(mode.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.scheduler = Scheduler()
@@ -151,6 +157,23 @@ class DataLoggerTests(unittest.TestCase):
         logger.set_interval(0.01)
         self.assertEqual(logger._interval, 0.1)
 
+    def test_runs_started_in_same_second_have_distinct_ids(self):
+        logger = self.logger({"Value": lambda: 1})
+        logger._run_id_var = SimpleNamespace(get=lambda: "Group1_Run1")
+        with patch("core.data_logger.datetime") as clock, patch.object(
+                logger, "_make_filepath", side_effect=[
+                    f"{self.temp.name}/first.csv", f"{self.temp.name}/second.csv"]):
+            clock.now.return_value = datetime(2026, 11, 17, 14, 0, 0)
+            logger.start()
+            first_id = logger._active_run_id
+            logger.stop()
+            logger.start()
+            second_id = logger._active_run_id
+            logger.stop()
+        self.assertNotEqual(first_id, second_id)
+        self.assertTrue(first_id.startswith("Group1_Run1_20261117_140000_"))
+        self.assertTrue(second_id.startswith("Group1_Run1_20261117_140000_"))
+
     def test_historian_snapshots_keep_run_label_and_skip_invalid_fields(self):
         owner = threading.get_ident()
         state = {"run": " Group_A ", "value": "21.5"}
@@ -181,12 +204,107 @@ class DataLoggerTests(unittest.TestCase):
         self.assertFalse(logger._influx_thread.is_alive())
         self.assertEqual(len(self.rows(logger)), 2)
         self.assertEqual(client.write_api.return_value.write.call_count, 2)
+        self.assertEqual(logger.influx_uploaded, 2)
+        self.assertEqual(logger.last_influx_success, "14:30:15")
+        self.assertIn("2 uploaded", logger.influx_status)
+        self.assertIn("Logging stopped", logger.influx_status)
         self.assertEqual(point.field.call_args_list[0].args, ("temperature", 21.5))
         self.assertEqual(point.field.call_args_list[1].args, ("temperature", 22.0))
         run_tags = [call.args for call in point.tag.call_args_list if call.args[0] == "run_id"]
-        self.assertEqual(run_tags, [("run_id", "Group_A_143015")] * 2)
+        self.assertEqual(len(run_tags), 2)
+        self.assertEqual(run_tags[0], run_tags[1])
+        self.assertRegex(run_tags[0][1], r"^Group_A_20261028_143015_[0-9a-f]{32}$")
         point.tag.assert_any_call("unit_op", "STHX1")
         client.close.assert_called_once()
+
+    def test_disabled_database_explains_reason_and_preserves_csv(self):
+        for available, token, reason in (
+                (False, "test", "not installed"),
+                (True, "", "INFLUX_TOKEN is missing")):
+            with self.subTest(reason=reason), patch.multiple(
+                    "core.data_logger", INFLUX_AVAILABLE=available, INFLUX_TOKEN=token):
+                logger = self.logger({"Value": lambda: 1})
+                logger._influx_sources = {"value": lambda: 1}
+                logger.start()
+                logger.stop()
+                self.assertIn(reason, logger.influx_status)
+                self.assertIn("CSV only", logger.influx_status)
+                self.assertEqual(len(self.rows(logger)), 1)
+
+    def test_upload_failure_and_recovery_retain_failed_count(self):
+        logger = self.logger({})
+        logger._influx_started = True
+        queue = Queue()
+        queue.put(({"temperature": 20.0}, 1))
+        queue.put(None)
+        client = Mock()
+        client.write_api.return_value.write.side_effect = OSError("unavailable secret-token")
+        point = Mock()
+        point.tag.return_value = point
+        with patch.multiple("core.data_logger", INFLUX_TOKEN="secret-token",
+                            InfluxDBClient=Mock(return_value=client), Point=Mock(return_value=point),
+                            WritePrecision=SimpleNamespace(NS="ns"), SYNCHRONOUS=object(), create=True):
+            logger._run_influx(queue, "run")
+            self.assertIn("Upload error", logger.influx_status)
+            self.assertNotIn("secret-token", logger.influx_status)
+            self.assertEqual(logger.influx_uploaded, 0)
+            client.write_api.return_value.write.side_effect = None
+            queue.put(({"temperature": 21.0}, 2))
+            queue.put(None)
+            logger._run_influx(queue, "run")
+        self.assertEqual(logger.influx_uploaded, 1)
+        self.assertEqual(logger.influx_failed, 1)
+        self.assertIsNone(logger.last_influx_error)
+        self.assertIn("1 failed", logger.influx_status)
+        self.assertIn("Last upload", logger.influx_status)
+
+    def test_relay_needs_no_influx_token_and_corrects_clock(self):
+        logger = self.logger({"Value": lambda: 23})
+        logger._influx_sources = {"temperature": lambda: 23}
+        logger._write_mode = "relay"
+        owner_thread = threading.get_ident()
+
+        def student():
+            self.assertEqual(threading.get_ident(), owner_thread)
+            return "group1"
+
+        logger._student_id_var = SimpleNamespace(get=student)
+        session = Mock()
+        session.get.return_value.json.return_value = {"server_time_ns": 100_000_000_000}
+        with patch("core.data_logger.requests.Session") as session_class, patch.multiple(
+                "core.data_logger", INFLUX_AVAILABLE=False, INFLUX_TOKEN=""), patch(
+                    "core.data_logger.time_ns", return_value=10_000_000_000):
+            session_class.return_value.__enter__.return_value = session
+            logger.start()
+            logger.stop()
+            logger._influx_thread.join(timeout=1)
+        self.assertEqual(logger.influx_uploaded, 1)
+        self.assertEqual(logger.clock_offset_seconds, 90)
+        payload = session.post.call_args.kwargs["json"]
+        self.assertEqual(payload["student_id"], "group1")
+        self.assertEqual(payload["timestamp_ns"], 100_000_000_000)
+        self.assertEqual(payload["fields"], {"temperature": 23.0})
+        self.assertIn("timestamps corrected", logger.influx_status)
+
+    def test_relay_rejection_preserves_csv_without_direct_fallback(self):
+        logger = self.logger({"Value": lambda: 1})
+        logger._influx_sources = {"value": lambda: 1}
+        logger._write_mode = "relay"
+        logger._student_id_var = SimpleNamespace(get=lambda: "group1")
+        session = Mock()
+        session.get.return_value.json.return_value = {"server_time_ns": 100}
+        session.post.return_value.raise_for_status.side_effect = requests.HTTPError("403 denied")
+        with patch("core.data_logger.requests.Session") as session_class, patch.object(
+                logger, "_run_influx") as direct:
+            session_class.return_value.__enter__.return_value = session
+            logger.start()
+            logger.stop()
+            logger._influx_thread.join(timeout=1)
+        direct.assert_not_called()
+        self.assertEqual(logger.influx_failed, 1)
+        self.assertEqual(logger.influx_uploaded, 0)
+        self.assertIn("403", logger.influx_status)
+        self.assertEqual(len(self.rows(logger)), 1)
 
     def test_slow_failed_historian_does_not_block_csv_or_stop(self):
         entered = threading.Event()

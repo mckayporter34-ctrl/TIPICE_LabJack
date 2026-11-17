@@ -8,8 +8,11 @@ from datetime import datetime
 from queue import Queue, Full
 from threading import Thread
 from time import time_ns
+from uuid import uuid4
+import requests
 
 from core.historian_config import INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET
+from core.historian_config import HISTORIAN_API_URL, HISTORIAN_WRITE_MODE
 
 try:
     from influxdb_client import InfluxDBClient, Point, WritePrecision
@@ -29,7 +32,8 @@ class DataLogger:
 
     def __init__(self, sources: dict, folder: str, count_var, scheduler=None,
                  numeric_sources=(), on_error=None, *, influx_sources=None,
-                 unit_op="DefaultUnit", experiment_id_var=None):
+                 unit_op="DefaultUnit", experiment_id_var=None,
+                 student_id_var=None, write_mode=None):
         self._sources = sources
         self._folder = folder
         self._count_var = count_var
@@ -48,8 +52,46 @@ class DataLogger:
         self._influx_sources = influx_sources or {}
         self._unit_op = unit_op
         self._run_id_var = experiment_id_var
+        self._student_id_var = student_id_var
+        self._write_mode = write_mode if write_mode is not None else HISTORIAN_WRITE_MODE
         self._influx_thread = None
         self.last_influx_error = None
+        self.influx_uploaded = 0
+        self.influx_failed = 0
+        self.influx_dropped = 0
+        self.last_influx_success = None
+        self._influx_disabled = None
+        self._influx_started = False
+        self._has_influx_fields = False
+        self.clock_offset_seconds = None
+
+    @property
+    def influx_status(self):
+        """Plain text only; callers update Tk widgets on the UI thread."""
+        if self._influx_disabled:
+            return f"Database disabled: {self._influx_disabled}. CSV only."
+        if not self._influx_started:
+            return "Database: idle"
+        summary = f"Database: {self.influx_uploaded} uploaded"
+        if self.influx_failed or self.influx_dropped:
+            summary += f", {self.influx_failed} failed, {self.influx_dropped} dropped"
+        if self.last_influx_error:
+            error = str(self.last_influx_error)
+            if INFLUX_TOKEN:
+                error = error.replace(INFLUX_TOKEN, "[redacted]")
+            return summary + "\nUpload error: " + " ".join(error.split())[:160]
+        if self.last_influx_success:
+            summary += f"\nLast upload: {self.last_influx_success}"
+            if self.clock_offset_seconds is not None and abs(self.clock_offset_seconds) > 30:
+                summary += "\nPC clock differs from Pi; timestamps corrected"
+        elif not self._has_influx_fields:
+            summary += "\nWaiting for valid readings"
+        else:
+            summary += "\nWaiting for first upload"
+        if not self._is_logging:
+            finishing = self._influx_thread is not None and self._influx_thread.is_alive()
+            summary += "\nFinishing uploads" if finishing else "\nLogging stopped"
+        return summary
 
     @property
     def is_logging(self) -> bool:
@@ -66,12 +108,15 @@ class DataLogger:
             return
         if self._thread is not None and self._thread.is_alive():
             raise RuntimeError("The previous log file is still finishing. Try again shortly.")
+        if self._influx_thread is not None and self._influx_thread.is_alive():
+            raise RuntimeError("The previous database uploads are still finishing. Try again shortly.")
 
         # Read the Tk variable once on the UI thread, before any workers start.
         run_id = self._run_id_var.get().strip() if self._run_id_var is not None else ""
         base_name = run_id if run_id else "Unnamed_Run"
-        timestamp_suffix = datetime.now().strftime("%H%M%S")
-        self._active_run_id = f"{base_name}_{timestamp_suffix}"
+        timestamp_suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self._active_run_id = f"{base_name}_{timestamp_suffix}_{uuid4().hex}"
+        student_id = self._student_id_var.get().strip() if self._student_id_var is not None else ""
 
         # Open before starting so permission/disk errors reach the GUI immediately.
         self.filepath = self._make_filepath()
@@ -92,14 +137,32 @@ class DataLogger:
         self.last_error = None
         self.source_errors = {}
         self.last_influx_error = None
+        self.influx_uploaded = 0
+        self.influx_failed = 0
+        self.influx_dropped = 0
+        self.last_influx_success = None
+        self._has_influx_fields = False
+        self._influx_started = False
+        self.clock_offset_seconds = None
+        self._influx_disabled = (
+            "no channels configured" if not self._influx_sources else
+            "invalid HISTORIAN_WRITE_MODE" if self._write_mode not in ("direct", "relay") else
+            "student ID is missing" if self._write_mode == "relay" and not student_id else
+            None if self._write_mode == "relay" else
+            "influxdb-client is not installed" if not INFLUX_AVAILABLE else
+            "INFLUX_TOKEN is missing" if not INFLUX_TOKEN else None)
         self._count_var.set(0)
         self._is_logging = True
         influx_queue = None
-        if self._influx_sources and INFLUX_AVAILABLE and INFLUX_TOKEN:
+        if not self._influx_disabled:
+            self._influx_started = True
             # A slow/unavailable historian must not stall local CSV logging.
             influx_queue = Queue(maxsize=100)
-            self._influx_thread = Thread(
-                target=self._run_influx, args=(influx_queue, self._active_run_id), daemon=True)
+            target = self._run_relay if self._write_mode == "relay" else self._run_influx
+            args = (influx_queue, self._active_run_id)
+            if self._write_mode == "relay":
+                args += (student_id,)
+            self._influx_thread = Thread(target=target, args=args, daemon=True)
             self._influx_thread.start()
         self._thread = Thread(target=self._run, args=(csvfile, writer, self._queue, influx_queue),
                               daemon=True)
@@ -158,6 +221,7 @@ class DataLogger:
             except Exception:
                 # Faulty historian channels must not interrupt CSV capture.
                 continue
+        self._has_influx_fields = bool(fields)
         self._queue.put((row, fields, time_ns()))
         self._capture_id = self._scheduler.after(
             round(self._interval * 1000), self._capture_row)
@@ -185,6 +249,7 @@ class DataLogger:
                         try:
                             influx_queue.put_nowait((fields, timestamp))
                         except Full:
+                            self.influx_dropped += 1
                             self.last_influx_error = "Historian backlog full; local CSV is still being saved."
         except Exception as exc:
             self.last_error = f"Could not save data to {self.filepath}: {exc}"
@@ -203,6 +268,38 @@ class DataLogger:
                         break
                     except Full:
                         influx_queue.get_nowait()
+                        self.influx_dropped += 1
+
+    def _run_relay(self, queue, run_id, student_id):
+        """Only the Pi needs a database token. Never fall back around session checks."""
+        with requests.Session() as session:
+            offset_ns = None
+            while True:
+                snapshot = queue.get()
+                if snapshot is None:
+                    break
+                fields, timestamp = snapshot
+                try:
+                    if offset_ns is None:
+                        before = time_ns()
+                        clock = session.get(f"{HISTORIAN_API_URL}/api/time", timeout=2)
+                        clock.raise_for_status()
+                        after = time_ns()
+                        offset_ns = int(clock.json()["server_time_ns"]) - (before + after) // 2
+                        self.clock_offset_seconds = offset_ns / 1e9
+                    response = session.post(
+                        f"{HISTORIAN_API_URL}/api/process-data",
+                        json={"unit_op": self._unit_op, "run_id": run_id,
+                              "student_id": student_id, "fields": fields,
+                              "timestamp_ns": timestamp + offset_ns}, timeout=3)
+                    response.raise_for_status()
+                    self.influx_uploaded += 1
+                    self.last_influx_success = datetime.now().strftime("%H:%M:%S")
+                    self.last_influx_error = None
+                except Exception as exc:
+                    self.influx_failed += 1
+                    self.last_influx_error = str(exc)
+                    logging.warning("Historian relay failed; local CSV continues: %s", exc)
 
     def _run_influx(self, queue, run_id):
         client = None
@@ -221,8 +318,11 @@ class DataLogger:
                         point.field(name, value)
                     point.time(timestamp, WritePrecision.NS)
                     write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+                    self.influx_uploaded += 1
+                    self.last_influx_success = datetime.now().strftime("%H:%M:%S")
                     self.last_influx_error = None
                 except Exception as exc:
+                    self.influx_failed += 1
                     self.last_influx_error = str(exc)
                     logging.warning("Historian write failed; local CSV continues: %s", exc)
         except Exception as exc:

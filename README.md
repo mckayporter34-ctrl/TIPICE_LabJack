@@ -4,6 +4,25 @@ This repository contains the software for controlling and monitoring various lab
 
 ## Architecture
 
+For the Pi session API, process-data relay, and staged desktop rollout, see
+[Historian relay deployment](docs/historian-relay.md).
+
+The logging controls show database upload status separately from the local CSV
+sample count. The database count increases only after InfluxDB acknowledges a
+sample; the last successful upload time is shown in the computer's local time.
+Missing credentials/dependencies, upload errors, and failed/dropped sample counts
+are displayed there. Failed uploads are not automatically replayed; the local CSV
+retains the captured data when database writes fail. Counts reset for each run.
+After stopping, allow pending uploads to finish before starting another run.
+
+Each new database run ID includes the chosen experiment name, local date/time,
+and a UUID, so simultaneous runs on different PCs do not share a tag. Existing
+run IDs are unchanged. Desktop and Pi polling apparatus tags share the mapping
+in `core/unit_ops.py`: `STHX1`–`STHX3`, `CatMeth1`–`CatMeth2`, `PC`, and `NNF1`.
+Only future Pi polling writes use these canonical tags; queries for older Pi
+data must still include the legacy names. Deploy the shared `core` package
+alongside the historian script.
+
 The development selector includes **Pump Cart → Unit #1**, sized for a
 1366×768 laptop display with a single main-flow PID and animated P&ID.
 See [Pump Cart notes](docs/pump-cart.md) for label positions, channels and TODOs.

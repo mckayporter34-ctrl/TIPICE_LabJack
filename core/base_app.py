@@ -30,23 +30,13 @@ from core.ui_builders import (
 from core.data_logger import DataLogger
 from core.numeric_entry import finite_number, install_numeric_validation
 from core.safety import SafetyState
+from core.unit_ops import UNIT_OP_MAP
+from core.historian_config import HISTORIAN_API_URL
 
 UPDATE_INTERVAL_MS = 500
 DT_MINUTES = UPDATE_INTERVAL_MS / 1000 / 60
 DEFAULT_EXPERIMENT_ID = "Group1_Run1"
 
-# Mapping SYSTEM_NAME to exact InfluxDB unit_op tags
-UNIT_OP_MAP = {
-    "Catalytic Methanation #1": "CatMeth1",
-    "Catalytic Methanation #2": "CatMeth2",
-    "Packed Columns": "PC",
-    "Shell & Tube Heat Exchanger #1": "STHX1",
-    "Shell & Tube Heat Exchanger #2": "STHX2",
-    "Shell & Tube Heat Exchanger #3": "STHX3",
-    "Air Flow Meters": "Airflow",
-    "Non-Newtonian Fluids #1": "NNF1",
-    "Non-Newtonian Fluids #2": "NNF2",
-}
 
 
 def _open_log_folder(filepath):
@@ -87,6 +77,7 @@ class BaseAppFrame(ttk.Frame):
         self._experiment_id_var = tk.StringVar(value=DEFAULT_EXPERIMENT_ID)
         self._open_data_after_run_var = tk.BooleanVar(self, value=False)
         self._logging_reminder_var = tk.StringVar(self)
+        self._database_status_var = tk.StringVar(self, value="Database: idle")
         self.student_id_var = tk.StringVar(value="")
         
         # Determine Unit Op name for the API & InfluxDB
@@ -127,7 +118,7 @@ class BaseAppFrame(ttk.Frame):
             
         try:
             response = requests.post(
-                "http://10.5.112.172:5000/checkout",
+                f"{HISTORIAN_API_URL}/checkout",
                 json={"student_id": student_id, "unit_op": self._unit_op, "force": force},
                 timeout=3
             )
@@ -159,7 +150,7 @@ class BaseAppFrame(ttk.Frame):
 
         try:
             requests.post(
-                "http://10.5.112.172:5000/release",
+                f"{HISTORIAN_API_URL}/release",
                 json={"unit_op": self._unit_op, "student_id": self.student_id_var.get().strip()},
                 timeout=2
             )
@@ -178,7 +169,7 @@ class BaseAppFrame(ttk.Frame):
 
         try:
             response = requests.post(
-                "http://10.5.112.172:5000/status",
+                f"{HISTORIAN_API_URL}/status",
                 json={"unit_op": self._unit_op, "student_id": my_id},
                 timeout=2
             )
@@ -301,6 +292,10 @@ class BaseAppFrame(ttk.Frame):
             count_var=self._data_point_count,
             unit_op=self._unit_op,
             experiment_id_var=self._experiment_id_var,
+            student_id_var=self.student_id_var,
+            # Development apparatuses have no checkout session yet.
+            write_mode=(None if getattr(self.config, "DEVICE_MANAGER_ENABLED", True)
+                        else "direct"),
             scheduler=self,
             numeric_sources=sources.keys(),
             on_error=self._on_logging_error,
@@ -577,6 +572,8 @@ class BaseAppFrame(ttk.Frame):
         ttk.Checkbutton(options, text="Open data after run",
                         variable=self._open_data_after_run_var).pack(anchor="w")
         ttk.Label(options, textvariable=self._logging_reminder_var,
+                  wraplength=220, justify="left").pack(anchor="w")
+        ttk.Label(options, textvariable=self._database_status_var,
                   wraplength=220, justify="left").pack(anchor="w")
         return options
 
@@ -861,12 +858,19 @@ class BaseAppFrame(ttk.Frame):
     # ══════════════════════════════════════════════════════════════════
 
     def _schedule_updates(self):
+        self.after(500, self._update_database_status)
         self.after(UPDATE_INTERVAL_MS, self._update_all_sensors)
         self.after(UPDATE_INTERVAL_MS, self._update_all_loops)
         self.after(UPDATE_INTERVAL_MS, self._update_manual_analog_outputs)
         
         # Start the background kill-switch polling
         self.after(3000, self._check_session_status)
+
+    def _update_database_status(self):
+        if not self._polling:
+            return
+        self._database_status_var.set(self.logger.influx_status)
+        self.after(500, self._update_database_status)
 
     def _update_all_sensors(self):
         if not self._polling:
